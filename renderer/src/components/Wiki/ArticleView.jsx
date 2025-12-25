@@ -17,20 +17,21 @@ const ArticleView = ({ entry, allEntries = [], onNavigate, onPinToAI, isPinned, 
       }
   };
 
-  // Helper to render WikiLinks
+  // Helper to render WikiLinks and #hashtags (supports underscores for multi-word tags)
   const renderContent = (text) => {
-      const parts = text.split(/(\[\[.*?\]\])/g);
+      // Split by WikiLinks and hashtags (including those with underscores)
+      const parts = text.split(/(\[\[.*?\]\]|#[\w_]+)/g);
       return parts.map((part, index) => {
           if (part.startsWith('[[') && part.endsWith(']]')) {
               const link = part.slice(2, -2);
               return (
-                  <span 
-                    key={index} 
+                  <span
+                    key={index}
                     onClick={() => onNavigate(link)}
                     title={`Jump to ${link}`}
-                    style={{ 
-                        color: '#36c', 
-                        cursor: 'pointer', 
+                    style={{
+                        color: '#36c',
+                        cursor: 'pointer',
                         textDecoration: 'none',
                         borderBottom: '1px solid transparent'
                     }}
@@ -38,6 +39,27 @@ const ArticleView = ({ entry, allEntries = [], onNavigate, onPinToAI, isPinned, 
                     onMouseLeave={(e) => e.target.style.borderBottom = '1px solid transparent'}
                   >
                       {link}
+                  </span>
+              );
+          } else if (part.startsWith('#') && /^#[\w_]+$/.test(part)) {
+              const tag = part.slice(1);
+              // Convert underscores to spaces for searching (tags are stored with spaces)
+              const searchTag = tag.replace(/_/g, ' ');
+              return (
+                  <span
+                    key={index}
+                    onClick={() => onNavigate(searchTag)}
+                    title={`Search for ${searchTag}`}
+                    style={{
+                        color: '#1565c0',
+                        cursor: 'pointer',
+                        fontWeight: '500',
+                        backgroundColor: '#e3f2fd',
+                        padding: '2px 6px',
+                        borderRadius: '3px'
+                    }}
+                  >
+                      #{tag}
                   </span>
               );
           }
@@ -49,17 +71,51 @@ const ArticleView = ({ entry, allEntries = [], onNavigate, onPinToAI, isPinned, 
     <div style={{ padding: '25px', width: '100%', backgroundColor: '#fff', minHeight: '100%' }}>
       
       {/* Title Header */}
-      <h1 style={{ 
-          fontFamily: "'Linux Libertine', Georgia, serif", 
-          fontSize: '2.5em', 
-          borderBottom: '1px solid #a2a9b1', 
-          paddingBottom: '5px', 
+      <h1 style={{
+          fontFamily: "'Linux Libertine', Georgia, serif",
+          fontSize: '2.5em',
+          borderBottom: '1px solid #a2a9b1',
+          paddingBottom: '5px',
           marginBottom: '20px',
           fontWeight: 'normal',
           color: '#000'
       }}>
         {entry.title}
       </h1>
+
+      {/* Tags Display */}
+      {entry.tags && entry.tags.length > 0 && (
+        <div style={{
+          display: 'flex',
+          gap: '8px',
+          flexWrap: 'wrap',
+          marginBottom: '15px',
+          paddingBottom: '15px',
+          borderBottom: '1px solid #eaecf0'
+        }}>
+          {entry.tags.map((tag, index) => (
+            <span
+              key={index}
+              onClick={() => onNavigate(tag)}
+              style={{
+                padding: '5px 12px',
+                backgroundColor: '#e3f2fd',
+                color: '#1565c0',
+                borderRadius: '16px',
+                fontSize: '0.85em',
+                fontWeight: '500',
+                cursor: 'pointer',
+                border: '1px solid #90caf9',
+                transition: 'background-color 0.2s'
+              }}
+              onMouseEnter={(e) => e.target.style.backgroundColor = '#bbdefb'}
+              onMouseLeave={(e) => e.target.style.backgroundColor = '#e3f2fd'}
+            >
+              #{tag}
+            </span>
+          ))}
+        </div>
+      )}
 
       {/* Metadata / Actions Bar */}
       <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px', padding: '10px', backgroundColor: '#f8f9fa', border: '1px solid #eaecf0', borderRadius: '2px' }}>
@@ -103,7 +159,7 @@ const ArticleView = ({ entry, allEntries = [], onNavigate, onPinToAI, isPinned, 
       </div>
 
       {/* Main Content */}
-      <div style={{ lineHeight: '1.6', fontSize: '1.05em', color: '#202122', fontFamily: 'sans-serif', maxWidth: '100%' }}>
+      <div style={{ lineHeight: '1.6', fontSize: '1.05em', color: '#202122', fontFamily: 'sans-serif', maxWidth: '100%', userSelect: 'text', cursor: 'text' }}>
         {renderContent(entry.content)}
       </div>
 

@@ -9,11 +9,17 @@ const UserManagement = ({ onClose }) => {
   }, []);
 
   const loadUsers = async () => {
-    // This would ideally come from the backend API
-    // For now, we'll mock it or rely on what's available
-    // Assuming window.wikiAPI.getUsers exists or implementing it
-    const loadedUsers = await window.wikiAPI.getUsers();
-    setUsers(loadedUsers || []);
+    try {
+      const result = await window.wikiAPI.getUsers();
+      if (Array.isArray(result)) {
+        setUsers(result);
+      } else if (result.success === false) {
+        alert('Error loading users: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Error loading users:', error);
+      alert('Failed to load users');
+    }
   };
 
   const handleCreateUser = async (e) => {
@@ -40,11 +46,20 @@ const UserManagement = ({ onClose }) => {
   };
 
   const handleRoleChange = async (username, newRole) => {
-    const result = await window.wikiAPI.updateUserRole(username, newRole);
+    const result = await window.wikiAPI.updateUserRole({ username, role: newRole });
     if (result.success) {
       loadUsers();
     } else {
       alert('Error updating role: ' + result.message);
+    }
+  };
+
+  const handleToggleActive = async (username) => {
+    const result = await window.wikiAPI.toggleUserActive(username);
+    if (result.success) {
+      loadUsers();
+    } else {
+      alert('Error toggling user status: ' + result.message);
     }
   };
 
@@ -98,31 +113,67 @@ const UserManagement = ({ onClose }) => {
                         <tr style={{textAlign: 'left', borderBottom: '2px solid #ddd'}}>
                             <th style={thStyle}>Username</th>
                             <th style={thStyle}>Role</th>
+                            <th style={thStyle}>Status</th>
+                            <th style={thStyle}>Created</th>
                             <th style={thStyle}>Actions</th>
                         </tr>
                     </thead>
                     <tbody>
                         {users.map(user => (
-                            <tr key={user.username} style={{borderBottom: '1px solid #eee'}}>
-                                <td style={tdStyle}>{user.username}</td>
+                            <tr key={user.username} style={{borderBottom: '1px solid #eee', opacity: user.active === 0 ? 0.5 : 1}}>
                                 <td style={tdStyle}>
-                                    <select 
-                                        value={user.role} 
+                                    {user.username}
+                                    {user.active === 0 && <span style={{marginLeft: '8px', fontSize: '0.75em', color: '#999'}}>(Deactivated)</span>}
+                                </td>
+                                <td style={tdStyle}>
+                                    <select
+                                        value={user.role}
                                         onChange={(e) => handleRoleChange(user.username, e.target.value)}
                                         style={{...inputStyle, padding: '4px'}}
+                                        disabled={user.active === 0}
                                     >
-                                        <option value="viewer">Viewer</option>
+                                        <option value="reader">Reader</option>
                                         <option value="editor">Editor</option>
                                         <option value="admin">Admin</option>
                                     </select>
                                 </td>
                                 <td style={tdStyle}>
-                                    <button 
-                                        onClick={() => handleDeleteUser(user.username)}
-                                        style={deleteBtnStyle}
-                                    >
-                                        Delete
-                                    </button>
+                                    <span style={{
+                                        padding: '2px 8px',
+                                        borderRadius: '12px',
+                                        fontSize: '0.8em',
+                                        backgroundColor: user.active === 1 ? '#e8f5e9' : '#ffebee',
+                                        color: user.active === 1 ? '#2e7d32' : '#c62828',
+                                        fontWeight: '500'
+                                    }}>
+                                        {user.active === 1 ? 'Active' : 'Inactive'}
+                                    </span>
+                                </td>
+                                <td style={tdStyle}>
+                                    <span style={{fontSize: '0.85em', color: '#666'}}>
+                                        {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
+                                    </span>
+                                </td>
+                                <td style={tdStyle}>
+                                    <div style={{display: 'flex', gap: '8px'}}>
+                                        <button
+                                            onClick={() => handleToggleActive(user.username)}
+                                            style={{
+                                                ...actionBtnStyle,
+                                                backgroundColor: user.active === 1 ? '#fff3e0' : '#e3f2fd',
+                                                color: user.active === 1 ? '#e65100' : '#1565c0',
+                                                border: `1px solid ${user.active === 1 ? '#ffcc80' : '#90caf9'}`
+                                            }}
+                                        >
+                                            {user.active === 1 ? 'Deactivate' : 'Activate'}
+                                        </button>
+                                        <button
+                                            onClick={() => handleDeleteUser(user.username)}
+                                            style={deleteBtnStyle}
+                                        >
+                                            Delete
+                                        </button>
+                                    </div>
                                 </td>
                             </tr>
                         ))}
@@ -200,6 +251,14 @@ const thStyle = {
 const tdStyle = {
     padding: '10px',
     color: '#333'
+};
+
+const actionBtnStyle = {
+    padding: '4px 8px',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.85em',
+    fontWeight: '500'
 };
 
 export default UserManagement;

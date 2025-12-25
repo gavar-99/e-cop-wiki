@@ -1,12 +1,142 @@
-import React, { useState } from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import TagInput from './TagInput';
 
 const EntryForm = ({ onComplete, initialTitle = '' }) => {
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState('');
+  const [tags, setTags] = useState([]);
   const [file, setFile] = useState(null);
   const [activeTab, setActiveTab] = useState('write'); // 'write', 'preview', 'snapshot'
   const [snapshotUrl, setSnapshotUrl] = useState('');
   const [isCapturing, setIsCapturing] = useState(false);
+
+  // Hashtag autocomplete state
+  const [showHashtagSuggestions, setShowHashtagSuggestions] = useState(false);
+  const [hashtagSuggestions, setHashtagSuggestions] = useState([]);
+  const [hashtagQuery, setHashtagQuery] = useState('');
+  const [hashtagPosition, setHashtagPosition] = useState({ top: 0, left: 0 });
+  const [selectedHashtagIndex, setSelectedHashtagIndex] = useState(0);
+  const [allTags, setAllTags] = useState([]);
+  const textareaRef = useRef(null);
+
+  // Load existing tags for autocomplete
+  useEffect(() => {
+    const loadTags = async () => {
+      const tagList = await window.wikiAPI.getAllTags();
+      setAllTags(tagList);
+    };
+    loadTags();
+  }, []);
+
+  // Detect hashtag as user types and show suggestions
+  const handleContentChange = (e) => {
+    const newContent = e.target.value;
+    setContent(newContent);
+
+    const cursorPos = e.target.selectionStart;
+    const textBeforeCursor = newContent.substring(0, cursorPos);
+
+    // Check if user is typing a hashtag
+    const hashtagMatch = textBeforeCursor.match(/#([\w_]*)$/);
+
+    if (hashtagMatch) {
+      const query = hashtagMatch[1];
+      setHashtagQuery(query);
+
+      // Filter tags that match the query
+      const filtered = allTags
+        .filter(t => t.name.toLowerCase().startsWith(query.toLowerCase()))
+        .slice(0, 5);
+
+      setHashtagSuggestions(filtered);
+      setShowHashtagSuggestions(filtered.length > 0);
+      setSelectedHashtagIndex(0);
+
+      // Calculate position for dropdown (approximate)
+      const textarea = textareaRef.current;
+      if (textarea) {
+        const lines = textBeforeCursor.split('\n');
+        const currentLine = lines.length;
+        const lineHeight = 20; // approximate
+        setHashtagPosition({
+          top: currentLine * lineHeight,
+          left: 20
+        });
+      }
+    } else {
+      setShowHashtagSuggestions(false);
+    }
+  };
+
+  // Handle keyboard events in textarea
+  const handleTextareaKeyDown = (e) => {
+    if (showHashtagSuggestions) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedHashtagIndex(prev => Math.min(prev + 1, hashtagSuggestions.length - 1));
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedHashtagIndex(prev => Math.max(prev - 1, 0));
+      } else if (e.key === 'Enter' && hashtagSuggestions.length > 0) {
+        e.preventDefault();
+        insertHashtag(hashtagSuggestions[selectedHashtagIndex].name);
+      } else if (e.key === 'Escape') {
+        setShowHashtagSuggestions(false);
+      }
+    }
+  };
+
+  // Insert selected hashtag
+  const insertHashtag = (tagName) => {
+    const cursorPos = textareaRef.current.selectionStart;
+    const textBefore = content.substring(0, cursorPos);
+    const textAfter = content.substring(cursorPos);
+
+    // Find the # position
+    const hashPos = textBefore.lastIndexOf('#');
+    // Replace spaces with underscores for hashtag format in content
+    const hashtagFormat = tagName.replace(/ /g, '_');
+    const newContent = textBefore.substring(0, hashPos + 1) + hashtagFormat + textAfter;
+
+    setContent(newContent);
+    setShowHashtagSuggestions(false);
+
+    // Set cursor position after the inserted tag
+    setTimeout(() => {
+      const newPos = hashPos + 1 + hashtagFormat.length;
+      textareaRef.current.selectionStart = newPos;
+      textareaRef.current.selectionEnd = newPos;
+      textareaRef.current.focus();
+    }, 0);
+  };
+
+  // Manual hashtag extraction function
+  const scanHashtags = () => {
+    // Match hashtags (supports underscores for multi-word tags like #Joe_Biden)
+    // Matches #word or #word_word followed by whitespace, punctuation, or end of string
+    const hashtagRegex = /#([\w_]+)(?=\s|$|[^\w_])/g;
+    const matches = [...content.matchAll(hashtagRegex)];
+
+    // Clean tags: remove # and replace underscores with spaces
+    const extractedTags = matches.map(match => match[1].replace(/_/g, ' '));
+
+    // Add extracted tags that aren't already in the tags list
+    let newTagsCount = 0;
+    extractedTags.forEach(tag => {
+      if (!tags.includes(tag)) {
+        setTags(prev => [...prev, tag]);
+        newTagsCount++;
+      }
+    });
+
+    if (newTagsCount > 0) {
+      alert(`✅ Found ${newTagsCount} new hashtag(s) in your content!`);
+    } else if (extractedTags.length > 0) {
+      alert('ℹ️ All hashtags are already in your tags list.');
+    } else {
+      alert('ℹ️ No hashtags found in content.\n\nTip: Use #hashtag or #Multi_Word_Tag format.');
+    }
+  };
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -14,6 +144,7 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
       title,
       content,
       filePath: file ? file.path : null,
+      tags,
     });
 
     if (result.success) {
@@ -78,25 +209,103 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
             />
           </div>
 
+          {/* Tag Input Section */}
+          <div style={{ marginBottom: '20px' }}>
+            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
+              <label style={labelStyle}>Tags / Keywords</label>
+              <button
+                type="button"
+                onClick={scanHashtags}
+                style={{
+                  padding: '6px 12px',
+                  backgroundColor: '#36c',
+                  color: '#fff',
+                  border: 'none',
+                  borderRadius: '4px',
+                  cursor: 'pointer',
+                  fontSize: '0.85em',
+                  fontWeight: '500',
+                  transition: 'background-color 0.2s'
+                }}
+                onMouseEnter={(e) => e.target.style.backgroundColor = '#2558a8'}
+                onMouseLeave={(e) => e.target.style.backgroundColor = '#36c'}
+              >
+                🔍 Scan Tags from Content
+              </button>
+            </div>
+            <TagInput tags={tags} onChange={setTags} />
+          </div>
+
           {activeTab === 'write' ? (
-            <div style={{ marginBottom: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
+            <div style={{ marginBottom: '20px', flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                     <label style={labelStyle}>Dossier Content (Markdown)</label>
                     <span style={{fontSize:'0.8em', color:'#666', marginBottom:'8px'}}>
-                        Tip: Use <b>[[Title]]</b> to link to other entries.
+                        Tip: Use <b>[[Title]]</b> to link. Type <b>#</b> for tag suggestions.
                     </span>
                 </div>
                 <textarea
+                    ref={textareaRef}
                     placeholder="Enter research data..."
                     value={content}
-                    onChange={(e) => setContent(e.target.value)}
+                    onChange={handleContentChange}
+                    onKeyDown={handleTextareaKeyDown}
                     required
                     style={textAreaStyle}
                 />
+                {/* Hashtag autocomplete dropdown */}
+                {showHashtagSuggestions && (
+                  <div style={{
+                    position: 'absolute',
+                    top: `${hashtagPosition.top + 80}px`,
+                    left: `${hashtagPosition.left}px`,
+                    backgroundColor: '#fff',
+                    border: '1px solid #e1e4e8',
+                    borderRadius: '4px',
+                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+                    maxWidth: '300px',
+                    zIndex: 1000
+                  }}>
+                    {hashtagSuggestions.map((suggestion, index) => (
+                      <div
+                        key={suggestion.id}
+                        onClick={() => insertHashtag(suggestion.name)}
+                        style={{
+                          padding: '8px 12px',
+                          cursor: 'pointer',
+                          backgroundColor: index === selectedHashtagIndex ? '#e3f2fd' : '#fff',
+                          borderBottom: index < hashtagSuggestions.length - 1 ? '1px solid #eee' : 'none'
+                        }}
+                      >
+                        <span style={{ fontWeight: 'bold', color: '#1565c0' }}>#{suggestion.name}</span>
+                        <span style={{ fontSize: '0.85em', color: '#666', marginLeft: '8px' }}>
+                          ({suggestion.count} {suggestion.count === 1 ? 'entry' : 'entries'})
+                        </span>
+                      </div>
+                    ))}
+                  </div>
+                )}
             </div>
           ) : activeTab === 'preview' ? (
             <div style={previewBoxStyle}>
               <h1 style={{...headerStyle, fontSize: '1.8em', borderBottom: 'none'}}>{title || 'Untitled Entry'}</h1>
+              {/* Preview tags */}
+              {tags.length > 0 && (
+                <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                  {tags.map((tag, i) => (
+                    <span key={i} style={{
+                      padding: '4px 10px',
+                      backgroundColor: '#e3f2fd',
+                      color: '#1565c0',
+                      borderRadius: '16px',
+                      fontSize: '0.85em',
+                      fontWeight: '500'
+                    }}>
+                      {tag}
+                    </span>
+                  ))}
+                </div>
+              )}
               <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Georgia, serif', lineHeight: '1.6', flex: 1, overflowY: 'auto' }}>{content || 'Nothing to preview...'}</div>
             </div>
           ) : (
@@ -242,7 +451,9 @@ const previewBoxStyle = {
     backgroundColor: '#fff',
     color: '#202122',
     display: 'flex',
-    flexDirection: 'column'
+    flexDirection: 'column',
+    userSelect: 'text',
+    cursor: 'text'
 };
 
 const snapshotContainerStyle = {

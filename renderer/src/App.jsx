@@ -17,7 +17,11 @@ const App = () => {
   const [integrityIssues, setIntegrityIssues] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
-  
+
+  // Navigation history state
+  const [history, setHistory] = useState([]);
+  const [historyIndex, setHistoryIndex] = useState(-1);
+
   // Resizable Sidebar State
   const [sidebarWidth, setSidebarWidth] = useState(350);
   const isResizing = useRef(false);
@@ -62,23 +66,82 @@ const App = () => {
     }
   }, [currentUser]);
 
+  // Listen for menu events
+  useEffect(() => {
+    if (window.wikiAPI.onOpenUserManagement) {
+      window.wikiAPI.onOpenUserManagement(() => {
+        setShowSettings(true);
+      });
+    }
+    if (window.wikiAPI.onLogout) {
+      window.wikiAPI.onLogout(() => {
+        handleLogout();
+      });
+    }
+  }, []);
+
   const handleLogout = async () => {
       await window.wikiAPI.logout();
       setCurrentUser(null);
   };
 
-  const handleNavigate = (title) => {
-      const entry = entries.find(e => e.title.toLowerCase() === title.toLowerCase());
-      if (entry) {
-          setCurrentEntry(entry);
+  const handleNavigate = async (titleOrQuery, skipHistory = false) => {
+      // First try exact title match
+      const exactMatch = entries.find(e => e.title.toLowerCase() === titleOrQuery.toLowerCase());
+
+      if (exactMatch) {
+          setCurrentEntry(exactMatch);
           setView('article');
+
+          // Add to history
+          if (!skipHistory) {
+              const newHistory = history.slice(0, historyIndex + 1);
+              newHistory.push({ type: 'article', entry: exactMatch });
+              setHistory(newHistory);
+              setHistoryIndex(newHistory.length - 1);
+          }
       } else {
-          if (canEdit) {
-              // If not found, switch to creation mode with this title
-              setDraftTitle(title);
-              setView('add');
+          // Try FTS5 search
+          const searchResults = await window.wikiAPI.searchEntries(titleOrQuery);
+
+          if (searchResults.length > 0) {
+              // Update entries with search results
+              setEntries(searchResults);
+              setView('dashboard');
           } else {
-              alert(`Entry "${title}" not found.`);
+              if (canEdit) {
+                  // If not found, switch to creation mode with this title
+                  setDraftTitle(titleOrQuery);
+                  setView('add');
+              } else {
+                  alert(`No entries found for "${titleOrQuery}".`);
+              }
+          }
+      }
+  };
+
+  const goBack = () => {
+      if (historyIndex > 0) {
+          const prevIndex = historyIndex - 1;
+          const prevState = history[prevIndex];
+
+          if (prevState.type === 'article') {
+              setCurrentEntry(prevState.entry);
+              setView('article');
+              setHistoryIndex(prevIndex);
+          }
+      }
+  };
+
+  const goForward = () => {
+      if (historyIndex < history.length - 1) {
+          const nextIndex = historyIndex + 1;
+          const nextState = history[nextIndex];
+
+          if (nextState.type === 'article') {
+              setCurrentEntry(nextState.entry);
+              setView('article');
+              setHistoryIndex(nextIndex);
           }
       }
   };
@@ -133,61 +196,122 @@ const App = () => {
         <main style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}>
           {/* Navigation Bar */}
           <nav style={topNavStyle}>
-          <div style={{ display: 'flex', gap: '30px', alignItems: 'center' }}>
-            <span style={{ 
-                fontFamily: 'Milker', 
-                fontSize: '2.2em', 
-                marginRight: '10px', 
-                color: '#202122',
-                letterSpacing: '1px',
-                position: 'relative',
-                top: '2px',
-                cursor: 'pointer'
-            }} onClick={() => setView('dashboard')}>
-              E-Cop Wiki
-            </span>
-            <div style={{display: 'flex', gap: '15px'}}>
-                <button onClick={() => setView('dashboard')} style={navLinkStyle(view === 'dashboard')}>
-                Home
-                </button>
-                {canEdit && (
-                    <button onClick={() => setView('add')} style={navLinkStyle(view === 'add')}>
-                    + Create
-                    </button>
-                )}
-            </div>
-            <div style={searchContainerStyle}>
-                <input
-                type="text"
-                placeholder="Search..."
-                value={searchQuery}
-                onChange={(e) => setSearchQuery(e.target.value)}
-                onKeyDown={(e) => {
-                    if(e.key === 'Enter') handleNavigate(searchQuery);
-                }}
-                style={searchFieldStyle}
-                />
-            </div>
-          </div>
+          <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+            {/* Top Row: Logo, Nav Links, Search, User Status */}
+            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid #e1e4e8' }}>
+              {/* Logo and Nav Links */}
+              <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+                <span style={{
+                    fontFamily: 'Milker',
+                    fontSize: '2.5em',
+                    color: '#202122',
+                    letterSpacing: '1px',
+                    cursor: 'pointer',
+                    lineHeight: '1'
+                }} onClick={() => setView('dashboard')}>
+                  E-Cop Wiki
+                </span>
 
-          <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
-            <div style={{
-                fontSize: '0.85em', 
-                color: '#555', 
-                backgroundColor: '#f0f2f5', 
-                padding: '6px 12px', 
-                borderRadius: '20px',
-                border: '1px solid #e1e4e8',
-                display: 'flex',
-                alignItems: 'center',
-                gap: '5px'
-            }}>
-                <span style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4caf50', display: 'inline-block'}}></span>
-                <strong>{currentUser.username}</strong>
+                {/* Navigation Links */}
+                <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
+                    <button onClick={() => setView('dashboard')} style={navLinkStyle(view === 'dashboard')}>
+                    Home
+                    </button>
+                    {canEdit && (
+                        <button onClick={() => setView('add')} style={navLinkStyle(view === 'add')}>
+                        Create
+                        </button>
+                    )}
+                </div>
+              </div>
+
+              {/* Search Bar - Centered */}
+              <div style={searchContainerStyle}>
+                  <input
+                  type="text"
+                  placeholder="Search titles, content, and tags..."
+                  value={searchQuery}
+                  onChange={(e) => setSearchQuery(e.target.value)}
+                  onKeyDown={(e) => {
+                      if(e.key === 'Enter') handleNavigate(searchQuery);
+                  }}
+                  style={searchFieldStyle}
+                  />
+              </div>
+
+              {/* User Status */}
+              <div style={{
+                  fontSize: '0.85em',
+                  color: '#555',
+                  backgroundColor: '#f0f2f5',
+                  padding: '6px 12px',
+                  borderRadius: '20px',
+                  border: '1px solid #e1e4e8',
+                  display: 'flex',
+                  alignItems: 'center',
+                  gap: '8px'
+              }}>
+                  <span style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4caf50', display: 'inline-block'}}></span>
+                  <strong>{currentUser.username}</strong>
+                  {currentUser.username.toLowerCase() !== currentUser.role.toLowerCase() && (
+                    <>
+                      <span style={{color: '#999'}}>·</span>
+                      <span style={{
+                          backgroundColor: currentUser.role === 'admin' ? '#e3f2fd' : '#f3e5f5',
+                          color: currentUser.role === 'admin' ? '#1565c0' : '#7b1fa2',
+                          padding: '2px 8px',
+                          borderRadius: '10px',
+                          fontSize: '0.9em',
+                          fontWeight: '500'
+                      }}>
+                          {currentUser.role}
+                      </span>
+                    </>
+                  )}
+              </div>
             </div>
-            <button onClick={handleLogout} style={logoutBtnStyle}>
-                Logout
-            </button>
+
+            {/* Bottom Row: Back/Forward Navigation */}
+            <div style={{display: 'flex', gap: '8px', alignItems: 'center', paddingTop: '8px'}}>
+                <button
+                    onClick={goBack}
+                    disabled={historyIndex <= 0}
+                    title="Go Back"
+                    style={{
+                        padding: '4px 8px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer',
+                        fontSize: '1.1em',
+                        color: historyIndex <= 0 ? '#ccc' : '#36c',
+                        transition: 'color 0.15s',
+                        fontWeight: 'bold'
+                    }}
+                    onMouseEnter={(e) => historyIndex > 0 && (e.target.style.color = '#1565c0')}
+                    onMouseLeave={(e) => historyIndex > 0 && (e.target.style.color = '#36c')}
+                >
+                    &lt;
+                </button>
+                <button
+                    onClick={goForward}
+                    disabled={historyIndex >= history.length - 1}
+                    title="Go Forward"
+                    style={{
+                        padding: '4px 8px',
+                        backgroundColor: 'transparent',
+                        border: 'none',
+                        cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer',
+                        fontSize: '1.1em',
+                        color: historyIndex >= history.length - 1 ? '#ccc' : '#36c',
+                        transition: 'color 0.15s',
+                        fontWeight: 'bold'
+                    }}
+                    onMouseEnter={(e) => historyIndex < history.length - 1 && (e.target.style.color = '#1565c0')}
+                    onMouseLeave={(e) => historyIndex < history.length - 1 && (e.target.style.color = '#36c')}
+                >
+                    &gt;
+                </button>
+            </div>
           </div>
         </nav>
 
@@ -238,13 +362,8 @@ const App = () => {
 };
 
 const topNavStyle = {
-  padding: '0 30px',
-  height: '64px',
+  padding: '15px 30px',
   backgroundColor: '#fff',
-  borderBottom: '1px solid #e1e4e8',
-  display: 'flex',
-  justifyContent: 'space-between',
-  alignItems: 'center',
   boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
   zIndex: 10
 };
@@ -252,10 +371,9 @@ const topNavStyle = {
 const navLinkStyle = (active) => ({
   background: 'none',
   border: 'none',
-  borderBottom: active ? '3px solid #36c' : '3px solid transparent',
+  borderBottom: active ? '2px solid #36c' : '2px solid transparent',
   cursor: 'pointer',
-  height: '64px',
-  padding: '0 5px',
+  padding: '8px 5px',
   color: active ? '#36c' : '#555',
   fontFamily: 'sans-serif',
   fontSize: '1em',
@@ -276,24 +394,12 @@ const searchContainerStyle = {
   alignItems: 'center',
 };
 
-const searchFieldStyle = { 
-    border: 'none', 
-    outline: 'none', 
-    width: '500px', 
+const searchFieldStyle = {
+    border: 'none',
+    outline: 'none',
+    width: '500px',
     backgroundColor: 'transparent',
     fontSize: '0.95em'
-};
-
-const logoutBtnStyle = {
-    background: 'none',
-    border: '1px solid #ffcdd2',
-    color: '#d32f2f',
-    borderRadius: '6px',
-    padding: '6px 12px',
-    cursor: 'pointer',
-    fontSize: '0.85em',
-    fontWeight: 'bold',
-    transition: 'background 0.2s'
 };
 
 export default App;

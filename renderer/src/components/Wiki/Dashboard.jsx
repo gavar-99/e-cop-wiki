@@ -20,7 +20,7 @@ const Dashboard = ({ entries, onNavigate }) => {
           <h1 style={{ fontFamily: "'Linux Libertine', Georgia, serif", fontSize: '2.2em', margin: '0 0 10px 0', cursor: 'pointer', color: '#000' }} onClick={() => onNavigate(featured.title)}>
             {featured.title}
           </h1>
-          <p style={{ fontSize: '1.05em', lineHeight: '1.6', color: '#202122' }}>
+          <p style={{ fontSize: '1.05em', lineHeight: '1.6', color: '#202122', userSelect: 'text', cursor: 'text' }}>
             {featured.content.substring(0, 300)}...
           </p>
           <button 
@@ -47,7 +47,7 @@ const Dashboard = ({ entries, onNavigate }) => {
                 >
                     {e.title}
                 </a>
-                <div style={{ fontSize: '0.9em', color: '#54595d', marginTop: '4px', lineHeight: '1.4' }}>
+                <div style={{ fontSize: '0.9em', color: '#54595d', marginTop: '4px', lineHeight: '1.4', userSelect: 'text' }}>
                     {e.content.substring(0, 100)}...
                 </div>
               </li>

@@ -1,28 +1,100 @@
-const { app, BrowserWindow, ipcMain, protocol, net } = require('electron');
+const { app, BrowserWindow, ipcMain, protocol, net, Menu } = require('electron');
 const path = require('path');
 const url = require('url');
 const crypto = require('crypto');
-const { initDB, db, saveAssetWithHash, verifyIntegrity, assetDir, verifyUser } = require('./db/dbManager');
+const { initDB, db, saveAssetWithHash, verifyIntegrity, assetDir, verifyUser, setEntryTags, getEntryTags, getAllTags, searchEntries, createUser, getAllUsers, deleteUser, updateUserRole, toggleUserActive } = require('./db/dbManager');
 const ipfsSidecar = require('./ipfs/sidecar');
 const { publishToSwarm, connectToPeer, getPeerId, createPrivateSwarm } = require('./ipfs/ipfsHandler');
 const { askGeminiWithContext } = require('./api/gemini');
 
 // Security Session State
 let activeSession = null;
+let mainWindow = null;
 
 // Register custom protocol for secure image loading
 protocol.registerSchemesAsPrivileged([
   { scheme: 'wiki-asset', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
+// Create Application Menu
+function createMenu() {
+  const template = [
+    {
+      label: 'File',
+      submenu: [
+        {
+          label: 'Verify Database Integrity',
+          click: async () => {
+            const issues = await verifyIntegrity();
+            if (issues && issues.length > 0) {
+              console.log(`⚠️ Integrity Issues Found: ${issues.length}`);
+            } else {
+              console.log('✅ Database integrity verified');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Logout',
+          click: () => {
+            activeSession = null;
+            if (mainWindow) {
+              mainWindow.webContents.send('logout-user');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'Exit',
+          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
+          click: () => app.quit()
+        }
+      ]
+    },
+    {
+      label: 'Settings',
+      submenu: [
+        {
+          label: 'Manage Users',
+          click: () => {
+            if (mainWindow && activeSession && activeSession.role === 'admin') {
+              mainWindow.webContents.send('open-user-management');
+            }
+          }
+        },
+        { type: 'separator' },
+        {
+          label: 'About',
+          click: () => {
+            console.log('E-Cop Wiki v1.0.0 - Secure Research Database');
+          }
+        }
+      ]
+    },
+    {
+      label: 'View',
+      submenu: [
+        { role: 'reload' },
+        { role: 'toggleDevTools' },
+        { type: 'separator' },
+        { role: 'resetZoom' },
+        { role: 'zoomIn' },
+        { role: 'zoomOut' }
+      ]
+    }
+  ];
+
+  const menu = Menu.buildFromTemplate(template);
+  Menu.setApplicationMenu(menu);
+}
+
 
 
 function createWindow() {
-  const win = new BrowserWindow({
+  mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
     icon: path.join(__dirname, '../assets/images/logo.png'),
-    autoHideMenuBar: true,
     frame: false, // Frameless for custom title bar
     webPreferences: {
       nodeIntegration: false,
@@ -30,12 +102,13 @@ function createWindow() {
       preload: path.join(__dirname, 'preload.js'),
     },
   });
-  
-  win.removeMenu();
 
   // Use path.join to ensure Windows compatibility
   // Load the built application from 'dist'
-  win.loadFile(path.join(__dirname, '../dist/index.html'));
+  mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
+
+  // Create application menu
+  createMenu();
 }
 
 app.whenReady().then(() => {
@@ -119,7 +192,7 @@ ipcMain.handle('create-private-swarm', async () => {
 });
 
 // Save Entry with Integrity Hashing
-ipcMain.handle('save-wiki-entry', async (event, { title, content, filePath }) => {
+ipcMain.handle('save-wiki-entry', async (event, { title, content, filePath, tags = [] }) => {
   if (!activeSession || !['admin', 'editor'].includes(activeSession.role)) {
       return { success: false, message: 'Permission Denied' };
   }
@@ -133,19 +206,27 @@ ipcMain.handle('save-wiki-entry', async (event, { title, content, filePath }) =>
       assetHash = hash;
     }
 
-    // MASTER FINGERPRINT: Hashing Title + Content + Asset Hash
-    // This creates an unbreakable link between the text and the evidence.
+    // UPDATED MASTER FINGERPRINT: Hashing Title + Content + Tags + Asset Hash
+    // This creates an unbreakable link between the text, keywords, and the evidence.
+    const sortedTags = tags.slice().sort();
+    const tagsString = sortedTags.join(',');
+
     const masterHash = crypto
       .createHash('sha256')
-      .update(`${title}|${content}|${assetHash}`)
+      .update(`${title}|${content}|${tagsString}|${assetHash}`)
       .digest('hex');
 
     const insert = db.prepare(`
             INSERT INTO research_entries (title, content, asset_path, sha256_hash)
             VALUES (?, ?, ?, ?)
         `);
-    insert.run(title, content, assetName, masterHash);
-    return { success: true };
+    const result = insert.run(title, content, assetName, masterHash);
+    const entryId = result.lastInsertRowid;
+
+    // Associate tags with the entry
+    setEntryTags(entryId, tags);
+
+    return { success: true, entryId };
   } catch (error) {
     console.error('Storage Error:', error);
     return { success: false, message: error.message };
@@ -168,7 +249,84 @@ ipcMain.handle('publish-to-ipfs', async (event, entryId) => {
 
 // Other handlers remain similar but now interact with the hardened database
 ipcMain.handle('get-wiki-entries', async () => {
-  return db.prepare('SELECT * FROM research_entries ORDER BY timestamp DESC').all();
+  const entries = db.prepare('SELECT * FROM research_entries ORDER BY timestamp DESC').all();
+
+  // Attach tags to each entry
+  return entries.map(entry => ({
+    ...entry,
+    tags: getEntryTags(entry.id).map(t => t.name)
+  }));
+});
+
+// Get all tags with usage statistics
+ipcMain.handle('get-all-tags', async () => {
+  return getAllTags();
+});
+
+// Get tags for specific entry
+ipcMain.handle('get-entry-tags', async (event, entryId) => {
+  return getEntryTags(entryId);
+});
+
+// Search entries using FTS5
+ipcMain.handle('search-entries', async (event, query) => {
+  const entryIds = searchEntries(query);
+  if (entryIds.length === 0) return [];
+
+  const placeholders = entryIds.map(() => '?').join(',');
+  const entries = db.prepare(`
+    SELECT * FROM research_entries
+    WHERE id IN (${placeholders})
+    ORDER BY timestamp DESC
+  `).all(...entryIds);
+
+  // Attach tags to search results
+  return entries.map(entry => ({
+    ...entry,
+    tags: getEntryTags(entry.id).map(t => t.name)
+  }));
+});
+
+// User Management Handlers (Admin only)
+ipcMain.handle('get-users', async () => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return getAllUsers();
+});
+
+ipcMain.handle('create-user', async (event, { username, password, role }) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return createUser(username, password, role);
+});
+
+ipcMain.handle('delete-user', async (event, username) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  if (username === activeSession.username) {
+    return { success: false, message: 'Cannot delete your own account' };
+  }
+  return deleteUser(username);
+});
+
+ipcMain.handle('update-user-role', async (event, { username, role }) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return updateUserRole(username, role);
+});
+
+ipcMain.handle('toggle-user-active', async (event, username) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  if (username === activeSession.username) {
+    return { success: false, message: 'Cannot deactivate your own account' };
+  }
+  return toggleUserActive(username);
 });
 
 // Gemini AI Call
