@@ -1,0 +1,38 @@
+# --- E-Cop Wiki Specifics ---
+# DO NOT track the actual political data or private keys
+main/db/*.db
+main/db/*.db-journal
+assets/screenshots/
+assets/pdfs/
+config/swarm.key
+config/ipfs-repo/
+.env
+
+# --- Dependency Directories ---
+node_modules/
+jspm_packages/
+
+# --- Build and Distribution ---
+dist/
+build/
+release/
+*.exe
+*.dmg
+*.AppImage
+
+# --- Debugging and Logs ---
+logs
+*.log
+npm-debug.log*
+yarn-debug.log*
+yarn-error.log*
+.eslintcache
+
+# --- OS Specific ---
+.DS_Store
+Thumbs.db
+
+# --- IDEs ---
+.vscode/
+.idea/
+*.swp

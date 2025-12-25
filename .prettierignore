@@ -1,0 +1,18 @@
+# Dependency and Build folders
+node_modules
+dist
+build
+release
+
+# Database and Assets (DO NOT FORMAT)
+main/db/*.db
+assets/
+bin/kubo/
+
+# Environment and Logs
+.env
+*.log
+package-lock.json
+
+# Web/Public artifacts
+renderer/public/
