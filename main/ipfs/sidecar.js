@@ -16,8 +16,9 @@ class IPFSSidecar {
       IPFS_PATH: ipfsRepoPath,
     };
 
-    // Check for private swarm key
-    const swarmKeyPath = path.join(app.getAppPath(), 'config', 'swarm.key');
+    // Check for private swarm key in the repo
+    // Kubo looks for 'swarm.key' in IPFS_PATH automatically.
+    const swarmKeyPath = path.join(ipfsRepoPath, 'swarm.key');
     if (require('fs').existsSync(swarmKeyPath)) {
       env.LIBP2P_FORCE_PNET = '1'; // Force Private Network mode
     }
@@ -32,7 +33,14 @@ class IPFSSidecar {
   }
 
   stop() {
-    if (this.child) this.child.kill(); // Ensure node closes with app
+    try {
+      if (this.child) {
+        this.child.kill();
+        this.child = null;
+      }
+    } catch (error) {
+      console.error('IPFS Sidecar Cleanup Error:', error);
+    }
   }
 }
 

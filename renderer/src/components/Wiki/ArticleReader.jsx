@@ -1,6 +1,6 @@
 import React, { useEffect, useState } from 'react';
 
-const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
+const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '', onSearch, userRole }) => {
   const [entries, setEntries] = useState([]);
 
   const loadEntries = async () => {
@@ -10,7 +10,47 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
 
   useEffect(() => {
     loadEntries();
-  }, []);
+  }, [entries.length]); // Reload if entries change count, or just once.
+
+  const handlePublish = async (id) => {
+      const res = await window.wikiAPI.publishEntry(id);
+      if(res.success) {
+          alert('Published! CID: ' + res.cid);
+          loadEntries();
+      } else {
+          alert('Error: ' + res.message);
+      }
+  };
+
+  // Helper to render WikiLinks
+  const renderContent = (text) => {
+      // Regex to find [[Link]]
+      const parts = text.split(/(\[\[.*?\]\])/g);
+      return parts.map((part, index) => {
+          if (part.startsWith('[[') && part.endsWith(']]')) {
+              const link = part.slice(2, -2);
+              return (
+                  <span 
+                    key={index} 
+                    onClick={() => onSearch(link)}
+                    title={`Jump to ${link}`}
+                    style={{ 
+                        color: '#36c', 
+                        cursor: 'pointer', 
+                        fontWeight: '500',
+                        textDecoration: 'none',
+                        borderBottom: '1px solid #36c'
+                    }}
+                    onMouseEnter={(e) => e.target.style.backgroundColor = '#eaf3ff'}
+                    onMouseLeave={(e) => e.target.style.backgroundColor = 'transparent'}
+                  >
+                      {link}
+                  </span>
+              );
+          }
+          return part;
+      });
+  };
 
   // Filter entries based on title or content
   const filteredEntries = entries.filter(
@@ -27,7 +67,7 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
 
       {filteredEntries.map((entry) => (
         <article key={entry.id} style={articleStyle}>
-          <h2 style={{ marginBottom: '5px' }}>{entry.title}</h2>
+          <h2 style={{ marginBottom: '10px', fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif", fontSize: '1.8em', borderBottom: '1px solid #a2a9b1', paddingBottom: '5px' }}>{entry.title}</h2>
 
           <div
             style={{
@@ -52,8 +92,7 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
           </div>
 
           <div className="content" style={contentStyle}>
-            {/* If you install react-markdown, use: <ReactMarkdown>{entry.content}</ReactMarkdown> */}
-            {entry.content}
+            {renderContent(entry.content)}
           </div>
 
           {entry.asset_path && (
@@ -76,37 +115,40 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
             <button
               onClick={() => onPinToAI(entry)}
               style={{
-                padding: '6px 12px',
+                padding: '8px 14px',
                 backgroundColor: pinnedIds.includes(entry.id) ? '#eaf3ff' : '#fff',
                 border: pinnedIds.includes(entry.id) ? '1px solid #36c' : '1px solid #a2a9b1',
-                borderRadius: '2px',
+                borderRadius: '6px',
                 cursor: 'pointer',
                 fontSize: '0.9em',
+                fontFamily: 'sans-serif', // Reverted
+                fontWeight: 'bold'
               }}
             >
               {pinnedIds.includes(entry.id) ? '✅ Pinned to AI' : '📌 Pin to AI Context'}
             </button>
 
             {/* IPFS Publish Button */}
-            {!entry.ipfs_cid ? (
+            {!entry.ipfs_cid && ['admin', 'editor'].includes(userRole) ? (
               <button
                 onClick={() => handlePublish(entry.id)}
                 style={{
-                  padding: '6px 12px',
+                  padding: '8px 14px',
                   backgroundColor: '#f8f9fa',
                   border: '1px solid #a2a9b1',
-                  borderRadius: '2px',
+                  borderRadius: '6px',
                   cursor: 'pointer',
                   fontSize: '0.9em',
+                  fontFamily: 'sans-serif' // Reverted
                 }}
               >
                 🚀 Verify & Publish to Swarm
               </button>
-            ) : (
+            ) : entry.ipfs_cid ? (
               <span style={{ fontSize: '0.85em', color: '#72777d', fontStyle: 'italic' }}>
                 Verification Complete (Pinned to Swarm)
               </span>
-            )}
+            ) : null}
           </div>
         </article>
       ))}
@@ -116,9 +158,10 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
 
 const wikiHeaderStyle = {
   borderBottom: '1px solid #a2a9b1',
-  fontFamily: 'serif',
+  fontFamily: "'Linux Libertine', 'Georgia', 'Times', serif", // Wikipedia Style
   paddingBottom: '10px',
-  fontSize: '1.8em',
+  fontSize: '2.5em',
+  fontWeight: 'normal'
 };
 const articleStyle = {
   marginBottom: '40px',

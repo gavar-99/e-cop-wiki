@@ -1,9 +1,16 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 
 const GeminiSidebar = ({ contextEntries, onClearContext }) => {
   const [query, setQuery] = useState('');
   const [response, setResponse] = useState('');
   const [loading, setLoading] = useState(false);
+  const [peerId, setPeerId] = useState(null);
+
+  useEffect(() => {
+    window.wikiAPI.getPeerId().then((res) => {
+      if (res.success) setPeerId(res.id);
+    });
+  }, []);
 
   const askAI = async (presetQuery = null) => {
     setLoading(true);
@@ -34,6 +41,19 @@ const GeminiSidebar = ({ contextEntries, onClearContext }) => {
       <p style={{ fontSize: '0.85em', color: '#54595d' }}>
         {contextEntries.length} articles selected as context.
       </p>
+
+      {contextEntries.length === 0 && (
+        <div style={{ 
+            backgroundColor: '#e3f2fd', 
+            borderLeft: '3px solid #36c', 
+            padding: '10px', 
+            fontSize: '0.8em', 
+            marginBottom: '15px', 
+            color: '#0d47a1' 
+        }}>
+            <strong>AI Context:</strong> By "Pinning" multiple entries found through a keyword search to the AI Sidebar, you are telling Gemini to analyze the connections between those specific documents (e.g., "Find the common names mentioned across these three files").
+        </div>
+      )}
 
       {/* Preset Actions */}
       <div style={{ display: 'flex', gap: '5px', marginBottom: '15px', flexWrap: 'wrap' }}>
@@ -85,6 +105,52 @@ const GeminiSidebar = ({ contextEntries, onClearContext }) => {
         }}
       >
         {response}
+      </div>
+
+      <div style={{ borderTop: '2px solid #a2a9b1', marginTop: '10px', paddingTop: '10px' }}>
+        <h4 style={{ margin: '0 0 10px 0', fontSize: '0.9em' }}>Private Swarm Network</h4>
+        
+        {peerId ? (
+             <div style={{fontSize: '0.75em', marginBottom: '10px', wordBreak: 'break-all', color: '#008000'}}>
+                <strong>Online Identity:</strong> {peerId}
+             </div>
+        ) : (
+             <div style={{fontSize: '0.75em', marginBottom: '10px', color: '#d33'}}>
+                <strong>Offline / Connecting...</strong>
+             </div>
+        )}
+
+        <div style={{ display: 'flex', gap: '5px', marginBottom: '10px' }}>
+          <input
+            type="text"
+            placeholder="/ip4/..."
+            id="multiaddr"
+            style={{ flex: 1, fontSize: '0.75em', padding: '4px' }}
+          />
+          <button
+            onClick={async () => {
+              const addr = document.getElementById('multiaddr').value;
+              if (!addr) return;
+              const res = await window.wikiAPI.connectSwarm(addr);
+              alert(res.message);
+            }}
+            style={{ fontSize: '0.75em', cursor: 'pointer' }}
+          >
+            Connect
+          </button>
+        </div>
+
+        <button 
+            onClick={async () => {
+                if(confirm('Generates a new shared secret key for a private network. This will overwrite existing keys. Continue?')) {
+                   const res = await window.wikiAPI.createPrivateSwarm();
+                   alert(res.message);
+                }
+            }}
+            style={{width: '100%', fontSize: '0.75em', cursor: 'pointer', backgroundColor: '#eee', border: '1px solid #ccc'}}
+        >
+            🛠 Generate New Network Key
+        </button>
       </div>
     </div>
   );

@@ -6,7 +6,9 @@ const EntryForm = ({ onComplete }) => {
   const [title, setTitle] = useState('');
   const [content, setContent] = useState('');
   const [file, setFile] = useState(null);
-  const [activeTab, setActiveTab] = useState('write'); // 'write' or 'preview'
+  const [activeTab, setActiveTab] = useState('write'); // 'write', 'preview', 'snapshot'
+  const [snapshotUrl, setSnapshotUrl] = useState('');
+  const [isCapturing, setIsCapturing] = useState(false);
 
   const handleSubmit = async (e) => {
     e.preventDefault();
@@ -24,6 +26,27 @@ const EntryForm = ({ onComplete }) => {
     }
   };
 
+  const handleCapture = async () => {
+    if (!snapshotUrl) return;
+    setIsCapturing(true);
+    try {
+      const result = await window.wikiAPI.captureWebSnapshot(snapshotUrl);
+      if (result.success) {
+        setFile({ path: result.filePath, name: 'Web_Snapshot.pdf' });
+        // Auto-append source to content if empty
+        if (!content) setContent(`Source: ${snapshotUrl}`);
+        setActiveTab('write');
+        alert('Snapshot captured securely.');
+      } else {
+        alert('Snapshot failed: ' + result.message);
+      }
+    } catch (e) {
+      alert('Error: ' + e.message);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
   return (
     <div className="wiki-form-container" style={{ maxWidth: '800px' }}>
       <h2 style={{ borderBottom: '1px solid #a2a9b1', paddingBottom: '10px' }}>
@@ -37,6 +60,9 @@ const EntryForm = ({ onComplete }) => {
         </button>
         <button onClick={() => setActiveTab('preview')} style={tabStyle(activeTab === 'preview')}>
           Preview
+        </button>
+        <button onClick={() => setActiveTab('snapshot')} style={tabStyle(activeTab === 'snapshot')}>
+          Web Snapshot
         </button>
       </div>
 
@@ -58,10 +84,32 @@ const EntryForm = ({ onComplete }) => {
             required
             style={textAreaStyle}
           />
-        ) : (
+        ) : activeTab === 'preview' ? (
           <div style={previewBoxStyle}>
             <h3>{title || 'Untitled Entry'}</h3>
             <div style={{ whiteSpace: 'pre-wrap' }}>{content || 'Nothing to preview...'}</div>
+          </div>
+        ) : (
+          <div style={previewBoxStyle}>
+             <h4 style={{marginTop:0}}>Secure Web Archiver</h4>
+             <p style={{fontSize: '0.9em', color: '#666'}}>
+                Enter a URL to capture a full-page PDF snapshot using a sandboxed browser process.
+             </p>
+             <input 
+                type="url" 
+                placeholder="https://example.com/sensitive-report"
+                value={snapshotUrl}
+                onChange={(e) => setSnapshotUrl(e.target.value)}
+                style={{...inputStyle, fontSize: '1em'}}
+             />
+             <button 
+                type="button" 
+                onClick={handleCapture}
+                disabled={isCapturing}
+                style={{...saveBtnStyle, backgroundColor: isCapturing ? '#999' : '#d33', marginTop: '10px'}}
+             >
+                {isCapturing ? 'Archiving...' : 'Capture Evidence'}
+             </button>
           </div>
         )}
 
@@ -76,6 +124,7 @@ const EntryForm = ({ onComplete }) => {
           <label style={{ fontSize: '0.85em', color: '#666' }}>
             📎 Attach Evidence (Screenshot/PDF):
           </label>
+           {file && <div style={{fontWeight:'bold', color: '#36c', marginBottom: '5px'}}>Selected: {file.name}</div>}
           <input
             type="file"
             accept="image/*,application/pdf"

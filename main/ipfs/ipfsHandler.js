@@ -1,6 +1,7 @@
 const path = require('path');
 const fs = require('fs');
 const { app } = require('electron');
+const crypto = require('crypto');
 
 /**
  * Interacts with the local IPFS node (Kubo)
@@ -35,4 +36,45 @@ async function publishToSwarm(entry) {
   }
 }
 
-module.exports = { publishToSwarm };
+async function connectToPeer(multiaddr) {
+  try {
+    const response = await fetch(
+      `http://127.0.0.1:5001/api/v0/swarm/connect?arg=${encodeURIComponent(multiaddr)}`,
+      { method: 'POST' }
+    );
+    const data = await response.json();
+    if (data.Strings) {
+      return { success: true, message: data.Strings[0] };
+    }
+    return { success: false, message: data.Message || 'Connection failed' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+}
+
+async function getPeerId() {
+    try {
+        const response = await fetch('http://127.0.0.1:5001/api/v0/id', { method: 'POST' });
+        const data = await response.json();
+        return { success: true, id: data.ID, addresses: data.Addresses };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+}
+
+async function createPrivateSwarm() {
+    try {
+        const keyVal = crypto.randomBytes(32).toString('hex');
+        const keyContent = `/key/swarm/psk/1.0.0/\n/base16/\n${keyVal}`;
+        
+        const ipfsRepoPath = path.join(app.getPath('userData'), 'ipfs-repo');
+        if (!fs.existsSync(ipfsRepoPath)) fs.mkdirSync(ipfsRepoPath, { recursive: true });
+        
+        fs.writeFileSync(path.join(ipfsRepoPath, 'swarm.key'), keyContent);
+        return { success: true, message: 'Swarm Key Generated. Please Restart App.' };
+    } catch (error) {
+        return { success: false, message: error.message };
+    }
+}
+
+module.exports = { publishToSwarm, connectToPeer, getPeerId, createPrivateSwarm };

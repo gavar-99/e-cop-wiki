@@ -1,0 +1,24 @@
+@font-face {
+  font-family: 'Milker';
+  src: url('./assets/fonts/Milker.otf') format('opentype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+@font-face {
+  font-family: 'Wasted-Vindey';
+  src: url('./assets/fonts/Wasted-Vindey.ttf') format('truetype');
+  font-weight: normal;
+  font-style: normal;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  overflow: hidden; /* Prevent scrollbars */
+  font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+}
+
+* {
+  box-sizing: border-box; /* Fix input colliding issues */
+}
