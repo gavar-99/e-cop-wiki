@@ -1,9 +1,8 @@
 import React, { useEffect, useState } from 'react';
 
-const ArticleReader = ({ onPinToAI, pinnedIds = [] }) => {
+const ArticleReader = ({ onPinToAI, pinnedIds = [], filter = '' }) => {
   const [entries, setEntries] = useState([]);
 
-  // Load entries from the local vault on mount
   const loadEntries = async () => {
     const data = await window.wikiAPI.getEntries();
     setEntries(data);
@@ -13,29 +12,21 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [] }) => {
     loadEntries();
   }, []);
 
-  const handlePublish = async (entryId) => {
-    const res = await window.wikiAPI.publishEntry(entryId);
-    if (res.success) {
-      alert(`Successfully published to the Private Swarm!\nCID: ${res.cid}`);
-      loadEntries(); // Refresh to show the new CID
-    } else {
-      alert('Publication failed: ' + res.message);
-    }
-  };
+  // Filter entries based on title or content
+  const filteredEntries = entries.filter(
+    (entry) =>
+      entry.title.toLowerCase().includes(filter.toLowerCase()) ||
+      entry.content.toLowerCase().includes(filter.toLowerCase())
+  );
 
   return (
     <div className="wiki-container" style={{ padding: '20px', flex: 1 }}>
-      <h1 style={{ borderBottom: '1px solid #a2a9b1', fontFamily: 'serif', paddingBottom: '10px' }}>
-        Political Archive
-      </h1>
+      <h1 style={wikiHeaderStyle}>Political Archive</h1>
 
-      {entries.length === 0 && <p>No research entries found in the local vault.</p>}
+      {filteredEntries.length === 0 && <p>No matching research entries found.</p>}
 
-      {entries.map((entry) => (
-        <article
-          key={entry.id}
-          style={{ marginBottom: '40px', borderBottom: '1px shadow #eee', paddingBottom: '20px' }}
-        >
+      {filteredEntries.map((entry) => (
+        <article key={entry.id} style={articleStyle}>
           <h2 style={{ marginBottom: '5px' }}>{entry.title}</h2>
 
           <div
@@ -60,7 +51,8 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [] }) => {
             )}
           </div>
 
-          <div className="content" style={{ lineHeight: 1.6, whiteSpace: 'pre-wrap' }}>
+          <div className="content" style={contentStyle}>
+            {/* If you install react-markdown, use: <ReactMarkdown>{entry.content}</ReactMarkdown> */}
             {entry.content}
           </div>
 
@@ -121,5 +113,18 @@ const ArticleReader = ({ onPinToAI, pinnedIds = [] }) => {
     </div>
   );
 };
+
+const wikiHeaderStyle = {
+  borderBottom: '1px solid #a2a9b1',
+  fontFamily: 'serif',
+  paddingBottom: '10px',
+  fontSize: '1.8em',
+};
+const articleStyle = {
+  marginBottom: '40px',
+  borderBottom: '1px solid #eee',
+  paddingBottom: '20px',
+};
+const contentStyle = { lineHeight: 1.6, whiteSpace: 'pre-wrap', color: '#202122', fontSize: '1em' };
 
 export default ArticleReader;
