@@ -12,6 +12,7 @@ const App = () => {
   const [view, setView] = useState('dashboard'); // 'dashboard', 'article', 'add'
   const [currentEntry, setCurrentEntry] = useState(null);
   const [searchQuery, setSearchQuery] = useState('');
+  const [draftTitle, setDraftTitle] = useState('');
   const [integrityIssues, setIntegrityIssues] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   
@@ -70,9 +71,13 @@ const App = () => {
           setCurrentEntry(entry);
           setView('article');
       } else {
-          // Fallback: if searching and not exact match, maybe show dashboard search logic?
-          // For now, simple alert or console.
-          console.log(`Entry "${title}" not found.`);
+          if (canEdit) {
+              // If not found, switch to creation mode with this title
+              setDraftTitle(title);
+              setView('add');
+          } else {
+              alert(`Entry "${title}" not found.`);
+          }
       }
   };
 
@@ -192,7 +197,7 @@ const App = () => {
                 userRole={currentUser.role}
              />
           ) : (
-            canEdit ? <EntryForm onComplete={() => { loadEntries(); setView('dashboard'); }} /> : <div>Access Denied</div>
+            canEdit ? <EntryForm initialTitle={draftTitle} onComplete={() => { loadEntries(); setView('dashboard'); setDraftTitle(''); }} /> : <div>Access Denied</div>
           )}
         </div>
       </main>
