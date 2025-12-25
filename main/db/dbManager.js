@@ -4,12 +4,12 @@ const fs = require('fs');
 const path = require('path');
 const { app } = require('electron');
 
-// PORTABLE STORAGE LOGIC: Move data out of the AppPath
+// HARDENING: Relocate data to the system-standard AppData/Local path
 const userDataPath = app.getPath('userData');
 const vaultDir = path.join(userDataPath, 'vault');
 const assetDir = path.join(userDataPath, 'assets');
 
-// Ensure directories exist
+// Ensure persistent directories exist
 if (!fs.existsSync(vaultDir)) fs.mkdirSync(vaultDir, { recursive: true });
 if (!fs.existsSync(assetDir)) fs.mkdirSync(assetDir, { recursive: true });
 
@@ -18,18 +18,21 @@ const db = new Database(dbPath);
 
 const initDB = () => {
   db.exec(`
-    CREATE TABLE IF NOT EXISTS research_entries (
-      id INTEGER PRIMARY KEY AUTOINCREMENT,
-      title TEXT NOT NULL,
-      content TEXT NOT NULL,
-      asset_path TEXT,
-      sha256_hash TEXT UNIQUE,
-      ipfs_cid TEXT,
-      timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-    )
-  `);
+        CREATE TABLE IF NOT EXISTS research_entries (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            title TEXT NOT NULL,
+            content TEXT NOT NULL,
+            asset_path TEXT,
+            sha256_hash TEXT UNIQUE,
+            ipfs_cid TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        )
+    `);
 };
 
+/**
+ * Saves assets using Content-Addressable logic in the Hardened path.
+ */
 const saveAssetWithHash = (sourcePath) => {
   const fileBuffer = fs.readFileSync(sourcePath);
   const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
@@ -40,7 +43,6 @@ const saveAssetWithHash = (sourcePath) => {
   if (!fs.existsSync(targetPath)) {
     fs.writeFileSync(targetPath, fileBuffer);
   }
-  // Return relative name for DB storage
   return { hash, fileName };
 };
 

@@ -10,7 +10,11 @@ class IPFSSidecar {
   }
 
   start() {
-    const env = { ...process.env, IPFS_PATH: path.join(app.getAppPath(), 'config', 'ipfs-repo') };
+    const ipfsRepoPath = path.join(app.getPath('userData'), 'ipfs-repo');
+    const env = {
+      ...process.env,
+      IPFS_PATH: ipfsRepoPath,
+    };
 
     // Check for private swarm key
     const swarmKeyPath = path.join(app.getAppPath(), 'config', 'swarm.key');
