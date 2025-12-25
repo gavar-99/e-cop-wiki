@@ -1,5 +1,6 @@
 const { app, BrowserWindow, ipcMain, protocol, net } = require('electron');
 const crypto = require('crypto');
+const { assetDir } = require('./db/dbManager');
 const path = require('path');
 const url = require('url');
 const { initDB, db, saveAssetWithHash } = require('./db/dbManager');
@@ -30,8 +31,8 @@ app.whenReady().then(() => {
 
   // Handle the custom protocol: wiki-asset://[hash].png
   protocol.handle('wiki-asset', (request) => {
-    const filePath = request.url.replace('wiki-asset://', '');
-    const absolutePath = path.join(app.getAppPath(), 'assets', filePath);
+    const fileName = request.url.replace('wiki-asset://', '');
+    const absolutePath = path.join(assetDir, fileName); // Corrected path
     return net.fetch(url.pathToFileURL(absolutePath).toString());
   });
 
@@ -43,32 +44,28 @@ app.whenReady().then(() => {
 // Save Entry with Integrity Hashing
 ipcMain.handle('save-wiki-entry', async (event, { title, content, filePath }) => {
   try {
-    let assetHash = null;
-    let assetPath = null;
+    let assetName = null;
+    let assetHash = 'no-asset';
 
-    // 1. Handle Asset (Screenshot/PDF)
     if (filePath) {
-      const { hash, relativePath } = saveAssetWithHash(filePath);
+      const { hash, fileName } = saveAssetWithHash(filePath);
+      assetName = fileName;
       assetHash = hash;
-      assetPath = relativePath.split('/').pop();
     }
 
-    // 2. Generate Universal Fingerprint (Text + Asset Hash)
-    // This ensures the "Research Lock" covers both the words and the evidence.
-    const finalFingerprint = crypto
+    // Generate a master fingerprint for this specific version of the research
+    const entryFingerprint = crypto
       .createHash('sha256')
-      .update(`${title}|${content}|${assetHash || 'no-asset'}`)
+      .update(`${title}|${content}|${assetHash}`)
       .digest('hex');
 
     const insert = db.prepare(`
       INSERT INTO research_entries (title, content, asset_path, sha256_hash)
       VALUES (?, ?, ?, ?)
     `);
-
-    insert.run(title, content, assetPath, finalFingerprint);
-    return { success: true, fingerprint: finalFingerprint };
+    insert.run(title, content, assetName, entryFingerprint);
+    return { success: true };
   } catch (error) {
-    console.error('Archive Error:', error);
     return { success: false, message: error.message };
   }
 });
