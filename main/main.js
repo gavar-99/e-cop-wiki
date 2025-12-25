@@ -1,4 +1,5 @@
 const { app, BrowserWindow, ipcMain, protocol, net } = require('electron');
+const crypto = require('crypto');
 const path = require('path');
 const url = require('url');
 const { initDB, db, saveAssetWithHash } = require('./db/dbManager');
@@ -42,22 +43,32 @@ app.whenReady().then(() => {
 // Save Entry with Integrity Hashing
 ipcMain.handle('save-wiki-entry', async (event, { title, content, filePath }) => {
   try {
-    // Generate a fingerprint for the entry text
-    const textHash = crypto.createHash('sha256').update(`${title}|${content}`).digest('hex');
-
+    let assetHash = null;
     let assetPath = null;
+
+    // 1. Handle Asset (Screenshot/PDF)
     if (filePath) {
-      const { relativePath } = saveAssetWithHash(filePath);
+      const { hash, relativePath } = saveAssetWithHash(filePath);
+      assetHash = hash;
       assetPath = relativePath.split('/').pop();
     }
 
+    // 2. Generate Universal Fingerprint (Text + Asset Hash)
+    // This ensures the "Research Lock" covers both the words and the evidence.
+    const finalFingerprint = crypto
+      .createHash('sha256')
+      .update(`${title}|${content}|${assetHash || 'no-asset'}`)
+      .digest('hex');
+
     const insert = db.prepare(`
-            INSERT INTO research_entries (title, content, asset_path, sha256_hash)
-            VALUES (?, ?, ?, ?)
-        `);
-    insert.run(title, content, assetPath, textHash);
-    return { success: true };
+      INSERT INTO research_entries (title, content, asset_path, sha256_hash)
+      VALUES (?, ?, ?, ?)
+    `);
+
+    insert.run(title, content, assetPath, finalFingerprint);
+    return { success: true, fingerprint: finalFingerprint };
   } catch (error) {
+    console.error('Archive Error:', error);
     return { success: false, message: error.message };
   }
 });
