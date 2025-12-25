@@ -46,7 +46,7 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
   };
 
   return (
-    <div style={{ padding: '20px', width: '100%' }}>
+    <div style={{ padding: '20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
       <div style={formCardStyle}>
         <h1 style={headerStyle}>
           New Research Entry
@@ -65,7 +65,7 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
           ))}
         </div>
 
-        <form onSubmit={handleSubmit}>
+        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
           <div style={{ marginBottom: '20px' }}>
             <label style={labelStyle}>Entry Title</label>
             <input
@@ -79,7 +79,7 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
           </div>
 
           {activeTab === 'write' ? (
-            <div style={{ marginBottom: '20px' }}>
+            <div style={{ marginBottom: '20px', flex: 1, display: 'flex', flexDirection: 'column' }}>
                 <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
                     <label style={labelStyle}>Dossier Content (Markdown)</label>
                     <span style={{fontSize:'0.8em', color:'#666', marginBottom:'8px'}}>
@@ -97,7 +97,7 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
           ) : activeTab === 'preview' ? (
             <div style={previewBoxStyle}>
               <h1 style={{...headerStyle, fontSize: '1.8em', borderBottom: 'none'}}>{title || 'Untitled Entry'}</h1>
-              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Georgia, serif', lineHeight: '1.6' }}>{content || 'Nothing to preview...'}</div>
+              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Georgia, serif', lineHeight: '1.6', flex: 1, overflowY: 'auto' }}>{content || 'Nothing to preview...'}</div>
             </div>
           ) : (
             <div style={snapshotContainerStyle}>
@@ -144,7 +144,7 @@ const EntryForm = ({ onComplete, initialTitle = '' }) => {
             </div>}
           </div>
 
-          <div style={{ marginTop: '30px', display: 'flex', justifyContent: 'flex-end' }}>
+          <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', paddingTop: '20px' }}>
              <button type="submit" style={primaryBtnStyle}>
                 Harden & Save to Vault
              </button>
@@ -161,9 +161,11 @@ const formCardStyle = {
     border: '1px solid #a2a9b1',
     borderRadius: '2px',
     padding: '40px',
-    maxWidth: '900px',
-    margin: '0 auto',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+    width: '100%',
+    height: '100%',
+    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
+    display: 'flex',
+    flexDirection: 'column'
 };
 
 const headerStyle = {
@@ -212,14 +214,14 @@ const standardInputStyle = {
 
 const textAreaStyle = {
     width: '100%',
-    height: '400px',
+    height: '100%',
     padding: '15px',
     fontFamily: "monospace",
     border: '1px solid #ddd',
     borderRadius: '4px',
     fontSize: '0.95em',
     lineHeight: '1.5',
-    resize: 'vertical',
+    resize: 'none',
     backgroundColor: '#fafafa'
 };
 
@@ -234,11 +236,13 @@ const labelStyle = {
 };
 
 const previewBoxStyle = {
-    minHeight: '400px',
+    flex: 1,
     padding: '30px',
     border: '1px solid #eee',
     backgroundColor: '#fff',
-    color: '#202122'
+    color: '#202122',
+    display: 'flex',
+    flexDirection: 'column'
 };
 
 const snapshotContainerStyle = {

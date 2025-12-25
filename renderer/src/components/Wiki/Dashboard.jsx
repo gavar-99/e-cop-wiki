@@ -15,7 +15,7 @@ const Dashboard = ({ entries, onNavigate }) => {
       {featured && (
         <section style={{ marginBottom: '30px', backgroundColor: '#fbfbfb', padding: '20px', border: '1px solid #a2a9b1', borderRadius: '2px' }}>
           <h2 style={{ fontFamily: "'Linux Libertine', Georgia, serif", color: '#555', fontSize: '1.1em', margin: '0 0 5px 0', textTransform: 'uppercase', letterSpacing: '0.5px' }}>
-            From the Archives
+            Highlights
           </h2>
           <h1 style={{ fontFamily: "'Linux Libertine', Georgia, serif", fontSize: '2.2em', margin: '0 0 10px 0', cursor: 'pointer', color: '#000' }} onClick={() => onNavigate(featured.title)}>
             {featured.title}
@@ -36,7 +36,7 @@ const Dashboard = ({ entries, onNavigate }) => {
         
         {/* Recently Added */}
         <section style={{ border: '1px solid #a2a9b1', padding: '15px', backgroundColor: '#fff' }}>
-          <h3 style={sectionHeaderStyle}>Recently Declassified</h3>
+          <h3 style={sectionHeaderStyle}>Latest</h3>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {recent.map(e => (
               <li key={e.id} style={{ marginBottom: '12px', paddingBottom: '12px', borderBottom: '1px solid #eee' }}>
@@ -57,7 +57,7 @@ const Dashboard = ({ entries, onNavigate }) => {
 
         {/* On This Day / Related */}
         <section style={{ border: '1px solid #a2a9b1', padding: '15px', backgroundColor: '#f9f9f9' }}>
-          <h3 style={sectionHeaderStyle}>Operational Timeline</h3>
+          <h3 style={sectionHeaderStyle}>On This Day</h3>
           <ul style={{ listStyle: 'none', padding: 0, margin: 0 }}>
             {onThisDay.map(e => (
               <li key={e.id} style={{ marginBottom: '15px' }}>

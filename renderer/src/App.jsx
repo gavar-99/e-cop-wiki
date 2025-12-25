@@ -5,6 +5,7 @@ import EntryForm from './components/Wiki/EntryForm';
 import GeminiSidebar from './components/Sidebar/GeminiSidebar';
 import Login from './components/Auth/Login';
 import TitleBar from './components/Layout/TitleBar';
+import UserManagement from './components/Admin/UserManagement';
 
 const App = () => {
   const [entries, setEntries] = useState([]);
@@ -15,6 +16,7 @@ const App = () => {
   const [draftTitle, setDraftTitle] = useState('');
   const [integrityIssues, setIntegrityIssues] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
+  const [showSettings, setShowSettings] = useState(false);
   
   // Resizable Sidebar State
   const [sidebarWidth, setSidebarWidth] = useState(350);
@@ -102,7 +104,15 @@ const App = () => {
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', flexDirection: 'column' }}>
-      <TitleBar transparent={false} />
+      <TitleBar 
+        transparent={false} 
+        userRole={currentUser.role}
+        onManageUsers={() => setShowSettings(true)}
+        onExit={() => window.wikiAPI.close()}
+      />
+      {showSettings && currentUser.role === 'admin' && (
+          <UserManagement onClose={() => setShowSettings(false)} />
+      )}
       <div style={{ height: '32px' }} /> {/* Spacer for TitleBar */}
       
       {integrityIssues.length > 0 && (
@@ -146,9 +156,6 @@ const App = () => {
                     </button>
                 )}
             </div>
-          </div>
-
-          <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
             <div style={searchContainerStyle}>
                 <input
                 type="text"
@@ -161,6 +168,9 @@ const App = () => {
                 style={searchFieldStyle}
                 />
             </div>
+          </div>
+
+          <div style={{display: 'flex', alignItems: 'center', gap: '20px'}}>
             <div style={{
                 fontSize: '0.85em', 
                 color: '#555', 
@@ -269,7 +279,7 @@ const searchContainerStyle = {
 const searchFieldStyle = { 
     border: 'none', 
     outline: 'none', 
-    width: '200px', 
+    width: '500px', 
     backgroundColor: 'transparent',
     fontSize: '0.95em'
 };
