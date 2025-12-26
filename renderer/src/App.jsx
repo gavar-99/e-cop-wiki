@@ -11,13 +11,20 @@ import Settings from './components/Admin/Settings';
 const App = () => {
   const [entries, setEntries] = useState([]);
   const [pinnedEntries, setPinnedEntries] = useState([]);
-  const [view, setView] = useState('dashboard'); // 'dashboard', 'article', 'add'
+  const [view, setView] = useState('dashboard'); // 'dashboard', 'article', 'add', 'edit'
   const [currentEntry, setCurrentEntry] = useState(null);
+  const [editingEntry, setEditingEntry] = useState(null); // Entry being edited
   const [searchQuery, setSearchQuery] = useState('');
   const [draftTitle, setDraftTitle] = useState('');
   const [integrityIssues, setIntegrityIssues] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+
+  // Search autocomplete state
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [selectedSearchIndex, setSelectedSearchIndex] = useState(0);
+  const searchInputRef = useRef(null);
 
   // Navigation history state
   const [history, setHistory] = useState([]);
@@ -81,9 +88,61 @@ const App = () => {
     }
   }, []);
 
+  // Search autocomplete with debounce
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim().length >= 2) {
+        try {
+          const suggestions = await window.wikiAPI.searchAutocomplete(searchQuery);
+          setSearchSuggestions(suggestions || []);
+          setShowSearchDropdown(suggestions && suggestions.length > 0);
+          setSelectedSearchIndex(0);
+        } catch (error) {
+          console.error('Search autocomplete error:', error);
+          setSearchSuggestions([]);
+          setShowSearchDropdown(false);
+        }
+      } else {
+        setSearchSuggestions([]);
+        setShowSearchDropdown(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
   const handleLogout = async () => {
       await window.wikiAPI.logout();
       setCurrentUser(null);
+  };
+
+  const handleSearchKeyDown = (e) => {
+    if (showSearchDropdown && searchSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSearchIndex((prev) =>
+          prev < searchSuggestions.length - 1 ? prev + 1 : prev
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSearchIndex((prev) => prev > 0 ? prev - 1 : 0);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchSuggestions[selectedSearchIndex]) {
+          handleSelectSuggestion(searchSuggestions[selectedSearchIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        setShowSearchDropdown(false);
+      }
+    } else if (e.key === 'Enter') {
+      handleNavigate(searchQuery);
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion) => {
+    setSearchQuery(suggestion.title);
+    setShowSearchDropdown(false);
+    handleNavigate(suggestion.title);
   };
 
   const handleNavigate = async (titleOrQuery, skipHistory = false) => {
@@ -153,6 +212,28 @@ const App = () => {
         ? prev.filter((e) => e.id !== entry.id)
         : [...prev, entry]
     );
+  };
+
+  const handleEdit = (entry) => {
+    setEditingEntry(entry);
+    setView('edit');
+  };
+
+  const handleDelete = async (entryId) => {
+    try {
+      const result = await window.wikiAPI.deleteEntry(entryId);
+      if (result.success) {
+        alert('Entry deleted successfully');
+        await loadEntries();
+        setView('dashboard');
+        setCurrentEntry(null);
+      } else {
+        alert('Error deleting entry: ' + result.message);
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Error deleting entry: ' + error.message);
+    }
   };
 
   if (!currentUser) {
@@ -227,17 +308,36 @@ const App = () => {
               </div>
 
               {/* Search Bar - Centered */}
-              <div style={searchContainerStyle}>
+              <div style={{ ...searchContainerStyle, position: 'relative' }}>
                   <input
+                  ref={searchInputRef}
                   type="text"
                   placeholder="Search titles, content, and tags..."
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={(e) => {
-                      if(e.key === 'Enter') handleNavigate(searchQuery);
-                  }}
+                  onKeyDown={handleSearchKeyDown}
                   style={searchFieldStyle}
                   />
+                  {/* Search Autocomplete Dropdown */}
+                  {showSearchDropdown && searchSuggestions.length > 0 && (
+                    <div style={searchDropdownStyle}>
+                      {searchSuggestions.map((suggestion, index) => (
+                        <div
+                          key={suggestion.id}
+                          onClick={() => handleSelectSuggestion(suggestion)}
+                          style={{
+                            ...searchSuggestionItemStyle,
+                            backgroundColor: index === selectedSearchIndex ? '#f0f6ff' : '#fff'
+                          }}
+                          onMouseEnter={() => setSelectedSearchIndex(index)}
+                        >
+                          <span style={{ fontWeight: '500', color: '#202122' }}>
+                            {suggestion.title}
+                          </span>
+                        </div>
+                      ))}
+                    </div>
+                  )}
               </div>
 
               {/* User Status */}
@@ -327,17 +427,33 @@ const App = () => {
                 onNavigate={handleNavigate} 
             />
           ) : view === 'article' ? (
-             <ArticleView 
+             <ArticleView
                 entry={currentEntry}
                 allEntries={entries} // Pass full list for backlink analysis
                 onNavigate={handleNavigate}
                 onPinToAI={handlePin}
                 isPinned={pinnedEntries.some(e => e.id === currentEntry?.id)}
                 userRole={currentUser.role}
+                currentUsername={currentUser.username}
+                onEdit={handleEdit}
+                onDelete={handleDelete}
              />
-          ) : (
-            canEdit ? <EntryForm initialTitle={draftTitle} onComplete={() => { loadEntries(); setView('dashboard'); setDraftTitle(''); }} /> : <div>Access Denied</div>
-          )}
+          ) : (view === 'add' || view === 'edit') ? (
+            canEdit ? (
+              <EntryForm
+                mode={view === 'edit' ? 'edit' : 'create'}
+                entry={editingEntry}
+                userRole={currentUser.role}
+                initialTitle={draftTitle}
+                onComplete={() => {
+                  loadEntries();
+                  setView('dashboard');
+                  setDraftTitle('');
+                  setEditingEntry(null);
+                }}
+              />
+            ) : <div>Access Denied</div>
+          ) : null}
         </div>
       </main>
 
@@ -405,6 +521,28 @@ const searchFieldStyle = {
     width: '500px',
     backgroundColor: 'transparent',
     fontSize: '0.95em'
+};
+
+const searchDropdownStyle = {
+  position: 'absolute',
+  top: '100%',
+  left: 0,
+  right: 0,
+  marginTop: '4px',
+  backgroundColor: '#fff',
+  border: '1px solid #e1e4e8',
+  borderRadius: '8px',
+  boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
+  maxHeight: '400px',
+  overflowY: 'auto',
+  zIndex: 1000
+};
+
+const searchSuggestionItemStyle = {
+  padding: '12px 16px',
+  cursor: 'pointer',
+  borderBottom: '1px solid #f0f2f5',
+  transition: 'background-color 0.15s'
 };
 
 export default App;
