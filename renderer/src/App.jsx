@@ -1,11 +1,12 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
+import { ChevronLeft, ChevronRight } from 'lucide-react';
 import Dashboard from './components/Wiki/Dashboard';
 import ArticleView from './components/Wiki/ArticleView';
 import EntryForm from './components/Wiki/EntryForm';
 import GeminiSidebar from './components/Sidebar/GeminiSidebar';
 import Login from './components/Auth/Login';
 import TitleBar from './components/Layout/TitleBar';
-import UserManagement from './components/Admin/UserManagement';
+import Settings from './components/Admin/Settings';
 
 const App = () => {
   const [entries, setEntries] = useState([]);
@@ -174,7 +175,7 @@ const App = () => {
         onExit={() => window.wikiAPI.close()}
       />
       {showSettings && currentUser.role === 'admin' && (
-          <UserManagement onClose={() => setShowSettings(false)} />
+          <Settings onClose={() => setShowSettings(false)} currentUser={currentUser} />
       )}
       <div style={{ height: '32px' }} /> {/* Spacer for TitleBar */}
       
@@ -285,12 +286,14 @@ const App = () => {
                         fontSize: '1.1em',
                         color: historyIndex <= 0 ? '#ccc' : '#36c',
                         transition: 'color 0.15s',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center'
                     }}
                     onMouseEnter={(e) => historyIndex > 0 && (e.target.style.color = '#1565c0')}
                     onMouseLeave={(e) => historyIndex > 0 && (e.target.style.color = '#36c')}
                 >
-                    &lt;
+                    <ChevronLeft size={18} />
                 </button>
                 <button
                     onClick={goForward}
@@ -304,12 +307,14 @@ const App = () => {
                         fontSize: '1.1em',
                         color: historyIndex >= history.length - 1 ? '#ccc' : '#36c',
                         transition: 'color 0.15s',
-                        fontWeight: 'bold'
+                        fontWeight: 'bold',
+                        display: 'flex',
+                        alignItems: 'center'
                     }}
                     onMouseEnter={(e) => historyIndex < history.length - 1 && (e.target.style.color = '#1565c0')}
                     onMouseLeave={(e) => historyIndex < history.length - 1 && (e.target.style.color = '#36c')}
                 >
-                    &gt;
+                    <ChevronRight size={18} />
                 </button>
             </div>
           </div>

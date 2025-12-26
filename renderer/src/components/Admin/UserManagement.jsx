@@ -1,6 +1,6 @@
 import React, { useState, useEffect } from 'react';
 
-const UserManagement = ({ onClose }) => {
+const UserManagement = ({ onClose, embedded = false }) => {
   const [users, setUsers] = useState([]);
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'viewer' });
 
@@ -63,13 +63,14 @@ const UserManagement = ({ onClose }) => {
     }
   };
 
-  return (
-    <div style={modalOverlayStyle}>
-      <div style={modalContentStyle}>
+  const content = (
+    <div style={embedded ? {} : modalContentStyle}>
+      {!embedded && (
         <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
-            <h2 style={{margin: 0}}>User Management</h2>
-            <button onClick={onClose} style={closeBtnStyle}>✕</button>
+          <h2 style={{margin: 0}}>User Management</h2>
+          <button onClick={onClose} style={closeBtnStyle}>✕</button>
         </div>
+      )}
 
         <div style={{display: 'flex', gap: '20px'}}>
             {/* Create User Form */}
@@ -182,6 +183,12 @@ const UserManagement = ({ onClose }) => {
             </div>
         </div>
       </div>
+  );
+
+  // Return content wrapped in modal overlay if not embedded
+  return embedded ? content : (
+    <div style={modalOverlayStyle}>
+      {content}
     </div>
   );
 };

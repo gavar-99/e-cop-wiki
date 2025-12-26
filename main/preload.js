@@ -21,6 +21,29 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   deleteUser: (username) => ipcRenderer.invoke('delete-user', username),
   updateUserRole: (data) => ipcRenderer.invoke('update-user-role', data),
   toggleUserActive: (username) => ipcRenderer.invoke('toggle-user-active', username),
+  // Database Export/Import/Backup
+  exportDatabase: () => ipcRenderer.invoke('export-database'),
+  importDatabase: () => ipcRenderer.invoke('import-database'),
+  backupNow: () => ipcRenderer.invoke('backup-now'),
+  getBackupStats: () => ipcRenderer.invoke('get-backup-stats'),
+  deleteBackup: (filename) => ipcRenderer.invoke('delete-backup', filename),
+  updateBackupSchedule: (schedule) => ipcRenderer.invoke('update-backup-schedule', schedule),
+  getBackupSchedule: () => ipcRenderer.invoke('get-backup-schedule'),
+  // Entry Edit/Delete Operations
+  updateEntry: (data) => ipcRenderer.invoke('update-wiki-entry', data),
+  deleteEntry: (entryId) => ipcRenderer.invoke('delete-wiki-entry', entryId),
+  restoreEntry: (entryId) => ipcRenderer.invoke('restore-wiki-entry', entryId),
+  // Multiple Assets Management
+  addEntryAssets: (data) => ipcRenderer.invoke('add-entry-assets', data),
+  getEntryAssets: (entryId) => ipcRenderer.invoke('get-entry-assets', entryId),
+  updateAssetCaption: (data) => ipcRenderer.invoke('update-asset-caption', data),
+  // Infobox
+  getEntryInfobox: (entryId) => ipcRenderer.invoke('get-entry-infobox', entryId),
+  // Search Autocomplete
+  searchAutocomplete: (query) => ipcRenderer.invoke('search-autocomplete', query),
+  // Activity Logs (Admin only)
+  getActivityLogs: (options) => ipcRenderer.invoke('get-activity-logs', options),
+  getLogStats: () => ipcRenderer.invoke('get-log-stats'),
   // Window controls
   minimize: () => ipcRenderer.invoke('window-minimize'),
   maximize: () => ipcRenderer.invoke('window-maximize'),

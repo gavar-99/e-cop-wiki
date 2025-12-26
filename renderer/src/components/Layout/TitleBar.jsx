@@ -52,12 +52,8 @@ const TitleBar = ({ transparent = false, userRole, onManageUsers, onExit }) => {
                         {activeMenu === 'settings' && (
                             <div style={dropdownStyle}>
                                 {userRole === 'admin' && (
-                                    <>
-                                        <button style={dropdownItemStyle} onClick={() => { setActiveMenu(null); onManageUsers(); }}>Users</button>
-                                        <div style={separatorStyle} />
-                                    </>
+                                    <button style={dropdownItemStyle} onClick={() => { setActiveMenu(null); onManageUsers(); }}>Database & Users</button>
                                 )}
-                                <button style={dropdownItemStyle} onClick={() => { setActiveMenu(null); alert('General Settings (Not Implemented)'); }}>General</button>
                             </div>
                         )}
                     </div>

@@ -1,0 +1,13 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(claude-code --version:*)",
+      "Bash(node scripts/clear-and-seed.js:*)",
+      "Bash(npm rebuild:*)",
+      "Bash(npx electron:*)",
+      "Bash(npm install:*)",
+      "Bash(npm run build:*)",
+      "Bash(npm start)"
+    ]
+  }
+}

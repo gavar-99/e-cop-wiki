@@ -76,6 +76,44 @@ const migrateExistingEntries = () => {
   console.log('Migration complete.');
 };
 
+/**
+ * Migrate existing single asset_path entries to entry_assets table
+ */
+const migrateToMultiAssets = () => {
+  console.log('Migrating single assets to multi-asset table...');
+
+  const entries = db.prepare('SELECT id, asset_path FROM research_entries WHERE asset_path IS NOT NULL').all();
+  let migratedCount = 0;
+
+  const insertAsset = db.prepare(`
+    INSERT INTO entry_assets (entry_id, asset_path, sha256_hash, caption, display_order)
+    VALUES (?, ?, ?, ?, 0)
+  `);
+
+  for (const entry of entries) {
+    // Check if this entry's asset was already migrated
+    const existingAsset = db.prepare('SELECT id FROM entry_assets WHERE entry_id = ?').get(entry.id);
+    if (existingAsset) {
+      continue; // Already migrated
+    }
+
+    // Calculate hash of existing asset
+    const filePath = path.join(assetDir, entry.asset_path);
+    if (fs.existsSync(filePath)) {
+      const fileBuffer = fs.readFileSync(filePath);
+      const assetHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+      // Insert into entry_assets
+      insertAsset.run(entry.id, entry.asset_path, assetHash, 'Attached Evidence');
+      migratedCount++;
+    }
+  }
+
+  if (migratedCount > 0) {
+    console.log(`Migrated ${migratedCount} assets to multi-asset table.`);
+  }
+};
+
 const initDB = () => {
   db.exec(`
         CREATE TABLE IF NOT EXISTS research_entries (
@@ -135,6 +173,83 @@ const initDB = () => {
         // Column already exists, ignore
     }
 
+    // Add author_username column to research_entries for authorship tracking
+    try {
+        db.exec(`ALTER TABLE research_entries ADD COLUMN author_username TEXT`);
+        console.log('Added author_username column to research_entries');
+        // Backfill existing entries with 'admin' as default author
+        db.exec(`UPDATE research_entries SET author_username = 'admin' WHERE author_username IS NULL`);
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Add soft delete columns to research_entries
+    try {
+        db.exec(`ALTER TABLE research_entries ADD COLUMN deleted_at DATETIME`);
+        console.log('Added deleted_at column to research_entries');
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    try {
+        db.exec(`ALTER TABLE research_entries ADD COLUMN deleted_by TEXT`);
+        console.log('Added deleted_by column to research_entries');
+    } catch (e) {
+        // Column already exists, ignore
+    }
+
+    // Create entry_assets table for multiple images per entry
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_assets (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            asset_path TEXT NOT NULL,
+            sha256_hash TEXT NOT NULL,
+            caption TEXT,
+            display_order INTEGER DEFAULT 0,
+            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
+            FOREIGN KEY (entry_id) REFERENCES research_entries(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_assets_entry ON entry_assets(entry_id);
+    `);
+
+    // Create entry_infoboxes table for Wikipedia-style infoboxes
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS entry_infoboxes (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            entry_id INTEGER NOT NULL,
+            field_key TEXT NOT NULL,
+            field_value TEXT NOT NULL,
+            display_order INTEGER DEFAULT 0,
+            FOREIGN KEY (entry_id) REFERENCES research_entries(id) ON DELETE CASCADE
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_infobox_entry ON entry_infoboxes(entry_id);
+    `);
+
+    // Create index for soft delete filtering
+    db.exec(`CREATE INDEX IF NOT EXISTS idx_entries_deleted ON research_entries(deleted_at)`);
+
+    // Create activity_logs table for tracking user actions
+    db.exec(`
+        CREATE TABLE IF NOT EXISTS activity_logs (
+            id INTEGER PRIMARY KEY AUTOINCREMENT,
+            username TEXT NOT NULL,
+            action TEXT NOT NULL,
+            entity_type TEXT NOT NULL,
+            entity_id INTEGER,
+            entity_title TEXT,
+            details TEXT,
+            ip_address TEXT,
+            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
+        );
+
+        CREATE INDEX IF NOT EXISTS idx_logs_username ON activity_logs(username);
+        CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON activity_logs(timestamp);
+        CREATE INDEX IF NOT EXISTS idx_logs_action ON activity_logs(action);
+    `);
+
     // Create FTS5 virtual table if not exists
     try {
         db.exec(`
@@ -156,6 +271,19 @@ const initDB = () => {
 
     if (needsMigration) {
         migrateExistingEntries();
+    }
+
+    // Migrate single assets to multi-asset table
+    try {
+        // Check if migration is needed (if there are entries with asset_path but no entry_assets)
+        const entriesWithAssets = db.prepare("SELECT COUNT(*) as count FROM research_entries WHERE asset_path IS NOT NULL").get().count;
+        const assetsInNewTable = db.prepare("SELECT COUNT(*) as count FROM entry_assets").get().count;
+
+        if (entriesWithAssets > 0 && assetsInNewTable === 0) {
+            migrateToMultiAssets();
+        }
+    } catch (e) {
+        console.log('Asset migration check skipped:', e.message);
     }
 
     // Seed Default Admin
@@ -340,34 +468,143 @@ const saveAssetWithHash = (sourcePath) => {
   return { hash, fileName };
 };
 
+/**
+ * Calculate hash chain for all assets of an entry
+ * @param {number} entryId
+ * @returns {string} SHA256 hash of all asset hashes or 'no-assets'
+ */
+const calculateAssetsHash = (entryId) => {
+  const assets = db.prepare(`
+    SELECT sha256_hash FROM entry_assets
+    WHERE entry_id = ?
+    ORDER BY display_order, id
+  `).all(entryId);
+
+  if (assets.length === 0) return 'no-assets';
+
+  const chain = assets.map(a => a.sha256_hash).join('|');
+  return crypto.createHash('sha256').update(chain).digest('hex');
+};
+
+/**
+ * Calculate hash for all infobox fields of an entry
+ * @param {number} entryId
+ * @returns {string} SHA256 hash of all infobox key:value pairs or 'no-infobox'
+ */
+const calculateInfoboxHash = (entryId) => {
+  const infoboxFields = db.prepare(`
+    SELECT field_key, field_value FROM entry_infoboxes
+    WHERE entry_id = ?
+    ORDER BY field_key
+  `).all(entryId);
+
+  if (infoboxFields.length === 0) return 'no-infobox';
+
+  const chain = infoboxFields.map(f => `${f.field_key}:${f.field_value}`).join('|');
+  return crypto.createHash('sha256').update(chain).digest('hex');
+};
+
+/**
+ * Recalculate and update the master hash for an entry
+ * @param {number} entryId
+ */
+const recalculateEntryHash = (entryId) => {
+  const entry = db.prepare('SELECT * FROM research_entries WHERE id = ?').get(entryId);
+  if (!entry) return;
+
+  const tags = getEntryTags(entryId);
+  const sortedTags = tags.map(t => t.name).sort();
+  const tagsString = sortedTags.join(',');
+  const assetsHash = calculateAssetsHash(entryId);
+  const infoboxHash = calculateInfoboxHash(entryId);
+
+  const newMasterHash = crypto
+    .createHash('sha256')
+    .update(`${entry.title}|${entry.content}|${tagsString}|${assetsHash}|${infoboxHash}`)
+    .digest('hex');
+
+  db.prepare('UPDATE research_entries SET sha256_hash = ? WHERE id = ?')
+    .run(newMasterHash, entryId);
+};
+
+/**
+ * Get all assets for an entry
+ * @param {number} entryId
+ * @returns {Array} Array of asset objects
+ */
+const getEntryAssets = (entryId) => {
+  return db.prepare(`
+    SELECT id, asset_path, sha256_hash, caption, display_order
+    FROM entry_assets
+    WHERE entry_id = ?
+    ORDER BY display_order, id
+  `).all(entryId);
+};
+
+/**
+ * Get infobox fields for an entry
+ * @param {number} entryId
+ * @returns {Array} Array of infobox field objects
+ */
+const getEntryInfobox = (entryId) => {
+  return db.prepare(`
+    SELECT field_key, field_value, display_order
+    FROM entry_infoboxes
+    WHERE entry_id = ?
+    ORDER BY display_order
+  `).all(entryId);
+};
+
 const verifyIntegrity = () => {
   const entries = db.prepare('SELECT * FROM research_entries').all();
   const compromised = [];
 
   for (const entry of entries) {
-    let currentAssetHash = 'no-asset';
-    let isAssetValid = true;
     let reason = null;
 
-    if (entry.asset_path) {
-      const filePath = path.join(assetDir, entry.asset_path);
+    // Get assets and verify each one exists with correct hash
+    const assets = getEntryAssets(entry.id);
+    const assetHashes = [];
+
+    for (const asset of assets) {
+      const filePath = path.join(assetDir, asset.asset_path);
       if (fs.existsSync(filePath)) {
         const fileBuffer = fs.readFileSync(filePath);
-        currentAssetHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+        const calculatedHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
+
+        if (calculatedHash !== asset.sha256_hash) {
+          reason = 'Asset Content Tampered';
+          break;
+        }
+        assetHashes.push(asset.sha256_hash);
       } else {
-        isAssetValid = false;
         reason = 'Asset Missing';
+        break;
       }
     }
+
+    // Calculate assets hash
+    const assetsHash = assetHashes.length > 0
+      ? crypto.createHash('sha256').update(assetHashes.join('|')).digest('hex')
+      : 'no-assets';
 
     // Get tags for this entry
     const tags = getEntryTags(entry.id);
     const sortedTags = tags.map(t => t.name).sort();
     const tagsString = sortedTags.join(',');
 
+    // Get infobox and calculate hash
+    const infoboxFields = getEntryInfobox(entry.id);
+    const infoboxHash = infoboxFields.length > 0
+      ? crypto.createHash('sha256')
+          .update(infoboxFields.map(f => `${f.field_key}:${f.field_value}`).sort().join('|'))
+          .digest('hex')
+      : 'no-infobox';
+
+    // Calculate master hash with new formula
     const calculatedMasterHash = crypto
       .createHash('sha256')
-      .update(`${entry.title}|${entry.content}|${tagsString}|${isAssetValid ? currentAssetHash : 'no-asset'}`)
+      .update(`${entry.title}|${entry.content}|${tagsString}|${assetsHash}|${infoboxHash}`)
       .digest('hex');
 
     if (calculatedMasterHash !== entry.sha256_hash) {
@@ -376,13 +613,13 @@ const verifyIntegrity = () => {
         title: entry.title,
         reason: reason || 'Metadata/Content Tampered',
       });
-    } else if (!isAssetValid) {
-        // Fallback if hash matches (unlikely if asset missing implies hash change, but for safety)
-         compromised.push({
-            id: entry.id,
-            title: entry.title,
-            reason: reason
-        });
+    } else if (reason) {
+      // Asset issue but hash still mismatches
+      compromised.push({
+        id: entry.id,
+        title: entry.title,
+        reason: reason
+      });
     }
   }
   return compromised;
@@ -497,6 +734,96 @@ const searchEntries = (query) => {
   return results.map(r => r.rowid);
 };
 
+/**
+ * Log user activity
+ * @param {string} username - Username performing the action
+ * @param {string} action - Action type (create, edit, delete, restore, login, logout, etc.)
+ * @param {string} entityType - Type of entity (entry, user, asset, etc.)
+ * @param {number} entityId - ID of the entity (optional)
+ * @param {string} entityTitle - Title/name of the entity (optional)
+ * @param {string} details - Additional details (optional)
+ */
+const logActivity = (username, action, entityType, entityId = null, entityTitle = null, details = null) => {
+  try {
+    db.prepare(`
+      INSERT INTO activity_logs (username, action, entity_type, entity_id, entity_title, details)
+      VALUES (?, ?, ?, ?, ?, ?)
+    `).run(username, action, entityType, entityId, entityTitle, details);
+  } catch (error) {
+    console.error('Failed to log activity:', error);
+  }
+};
+
+/**
+ * Get activity logs with filtering and pagination
+ * @param {Object} options - Filter options
+ * @returns {Array} Activity logs
+ */
+const getActivityLogs = (options = {}) => {
+  const {
+    username = null,
+    action = null,
+    entityType = null,
+    limit = 100,
+    offset = 0
+  } = options;
+
+  let query = 'SELECT * FROM activity_logs WHERE 1=1';
+  const params = [];
+
+  if (username) {
+    query += ' AND username = ?';
+    params.push(username);
+  }
+
+  if (action) {
+    query += ' AND action = ?';
+    params.push(action);
+  }
+
+  if (entityType) {
+    query += ' AND entity_type = ?';
+    params.push(entityType);
+  }
+
+  query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
+  params.push(limit, offset);
+
+  return db.prepare(query).all(...params);
+};
+
+/**
+ * Get activity log statistics
+ * @returns {Object} Statistics about activity logs
+ */
+const getLogStats = () => {
+  const totalLogs = db.prepare('SELECT COUNT(*) as count FROM activity_logs').get().count;
+  const uniqueUsers = db.prepare('SELECT COUNT(DISTINCT username) as count FROM activity_logs').get().count;
+
+  const recentActions = db.prepare(`
+    SELECT action, COUNT(*) as count
+    FROM activity_logs
+    WHERE timestamp > datetime('now', '-7 days')
+    GROUP BY action
+    ORDER BY count DESC
+  `).all();
+
+  const topUsers = db.prepare(`
+    SELECT username, COUNT(*) as count
+    FROM activity_logs
+    GROUP BY username
+    ORDER BY count DESC
+    LIMIT 5
+  `).all();
+
+  return {
+    totalLogs,
+    uniqueUsers,
+    recentActions,
+    topUsers
+  };
+};
+
 module.exports = {
   initDB,
   db,
@@ -509,9 +836,21 @@ module.exports = {
   updateUserRole,
   toggleUserActive,
   assetDir,
+  vaultDir,
+  userDataPath,
   getOrCreateTag,
   setEntryTags,
   getEntryTags,
   getAllTags,
-  searchEntries
+  searchEntries,
+  // New functions for multi-asset and infobox support
+  calculateAssetsHash,
+  calculateInfoboxHash,
+  recalculateEntryHash,
+  getEntryAssets,
+  getEntryInfobox,
+  // Activity logging functions
+  logActivity,
+  getActivityLogs,
+  getLogStats
 };
