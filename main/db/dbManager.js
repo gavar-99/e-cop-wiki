@@ -1,460 +1,202 @@
-const Database = require('better-sqlite3');
 const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
-const os = require('os');
+const mongoConnection = require('./mongoConnection');
+const { User, Tag, Entry, ActivityLog } = require('./models');
 
-let userDataPath;
-try {
-  // Check for explicit test mode or missing Electron app
-  if (process.env.TEST_MODE === 'true') {
-     throw new Error('Test Mode Active');
+const { assetDir, userDataPath } = mongoConnection;
+
+// Initialize database connection and seed data
+const initDB = async () => {
+  // Connect to MongoDB
+  const connectionResult = await mongoConnection.connect();
+  if (!connectionResult.success) {
+    console.error('Failed to connect to MongoDB:', connectionResult.message);
+    return connectionResult;
   }
 
-  const electron = require('electron');
-  if (electron.app) {
-    userDataPath = electron.app.getPath('userData');
-  } else {
-    throw new Error('Electron app not available');
-  }
-} catch (e) {
-  // Fallback for testing environment
-  console.log('Running in detached/test mode. Using temp directory.');
-  userDataPath = path.join(os.tmpdir(), 'ecop-wiki-test');
-}
+  // Seed default users
+  await seedDefaultUsers();
 
-const vaultDir = path.join(userDataPath, 'vault');
-const assetDir = path.join(userDataPath, 'assets');
+  // Seed sample research data
+  await seedResearch();
 
-// Ensure persistent directories exist
-if (!fs.existsSync(vaultDir)) fs.mkdirSync(vaultDir, { recursive: true });
-if (!fs.existsSync(assetDir)) fs.mkdirSync(assetDir, { recursive: true });
+  return { success: true };
+};
 
-const dbPath = path.join(vaultDir, 'vault.db');
-const db = new Database(dbPath);
-
-const migrateExistingEntries = () => {
-  console.log('Migrating existing entries to new tag-aware schema...');
-
-  const entries = db.prepare('SELECT * FROM research_entries').all();
-
-  for (const entry of entries) {
-    // Recalculate SHA-256 with empty tags
-    let assetHash = 'no-asset';
-
-    if (entry.asset_path) {
-      const filePath = path.join(assetDir, entry.asset_path);
-      if (fs.existsSync(filePath)) {
-        const fileBuffer = fs.readFileSync(filePath);
-        assetHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-      }
-    }
-
-    // New fingerprint: title|content|tags|assetHash (empty tags = '')
-    const newMasterHash = crypto
-      .createHash('sha256')
-      .update(`${entry.title}|${entry.content}||${assetHash}`)
-      .digest('hex');
-
-    // Update the hash
-    db.prepare('UPDATE research_entries SET sha256_hash = ? WHERE id = ?')
-      .run(newMasterHash, entry.id);
-  }
-
-  // Populate FTS5 with existing entries
+// Seed default users
+const seedDefaultUsers = async () => {
   try {
-    const insertFts = db.prepare(`
-      INSERT INTO research_fts(rowid, title, content, tags)
-      SELECT id, title, content, '' FROM research_entries
-    `);
-    insertFts.run();
-    console.log('FTS5 table populated with existing entries.');
-  } catch (e) {
-    console.log('FTS5 population skipped:', e.message);
-  }
-
-  console.log('Migration complete.');
-};
-
-/**
- * Migrate existing single asset_path entries to entry_assets table
- */
-const migrateToMultiAssets = () => {
-  console.log('Migrating single assets to multi-asset table...');
-
-  const entries = db.prepare('SELECT id, asset_path FROM research_entries WHERE asset_path IS NOT NULL').all();
-  let migratedCount = 0;
-
-  const insertAsset = db.prepare(`
-    INSERT INTO entry_assets (entry_id, asset_path, sha256_hash, caption, display_order)
-    VALUES (?, ?, ?, ?, 0)
-  `);
-
-  for (const entry of entries) {
-    // Check if this entry's asset was already migrated
-    const existingAsset = db.prepare('SELECT id FROM entry_assets WHERE entry_id = ?').get(entry.id);
-    if (existingAsset) {
-      continue; // Already migrated
+    // Default Admin
+    const adminExists = await User.findOne({ username: 'admin' });
+    if (!adminExists) {
+      await createUser('admin', 'admin123', 'admin');
+      console.log('Default Admin Account Created: admin / admin123');
     }
 
-    // Calculate hash of existing asset
-    const filePath = path.join(assetDir, entry.asset_path);
-    if (fs.existsSync(filePath)) {
-      const fileBuffer = fs.readFileSync(filePath);
-      const assetHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-
-      // Insert into entry_assets
-      insertAsset.run(entry.id, entry.asset_path, assetHash, 'Attached Evidence');
-      migratedCount++;
+    // Test Editor
+    const editorExists = await User.findOne({ username: 'editor' });
+    if (!editorExists) {
+      await createUser('editor', 'editor123', 'editor');
+      console.log('Test Editor Account Created: editor / editor123');
     }
-  }
 
-  if (migratedCount > 0) {
-    console.log(`Migrated ${migratedCount} assets to multi-asset table.`);
+    // Test Reader
+    const readerExists = await User.findOne({ username: 'reader' });
+    if (!readerExists) {
+      await createUser('reader', 'reader123', 'reader');
+      console.log('Test Reader Account Created: reader / reader123');
+    }
+  } catch (error) {
+    console.error('Error seeding users:', error.message);
   }
 };
 
-const initDB = () => {
-  db.exec(`
-        CREATE TABLE IF NOT EXISTS research_entries (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            title TEXT NOT NULL,
-            content TEXT NOT NULL,
-            asset_path TEXT,
-            sha256_hash TEXT UNIQUE,
-            ipfs_cid TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS tags (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT UNIQUE COLLATE NOCASE NOT NULL,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE TABLE IF NOT EXISTS entry_tags (
-            entry_id INTEGER NOT NULL,
-            tag_id INTEGER NOT NULL,
-            PRIMARY KEY (entry_id, tag_id),
-            FOREIGN KEY (entry_id) REFERENCES research_entries(id) ON DELETE CASCADE,
-            FOREIGN KEY (tag_id) REFERENCES tags(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_entry_tags_entry ON entry_tags(entry_id);
-        CREATE INDEX IF NOT EXISTS idx_entry_tags_tag ON entry_tags(tag_id);
-
-        CREATE TABLE IF NOT EXISTS users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT UNIQUE NOT NULL,
-            salt TEXT NOT NULL,
-            hash TEXT NOT NULL,
-            role TEXT NOT NULL,
-            active INTEGER DEFAULT 1,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-    `);
-
-    // Add active column to existing users table if it doesn't exist
-    try {
-        db.exec(`ALTER TABLE users ADD COLUMN active INTEGER DEFAULT 1`);
-        console.log('Added active column to users table');
-    } catch (e) {
-        // Column already exists, ignore
-    }
-
-    // Add created_at column to existing users table if it doesn't exist
-    // Note: SQLite doesn't support non-constant defaults in ALTER TABLE
-    try {
-        db.exec(`ALTER TABLE users ADD COLUMN created_at DATETIME`);
-        console.log('Added created_at column to users table');
-        // Update existing users to have current timestamp
-        db.exec(`UPDATE users SET created_at = CURRENT_TIMESTAMP WHERE created_at IS NULL`);
-    } catch (e) {
-        // Column already exists, ignore
-    }
-
-    // Add author_username column to research_entries for authorship tracking
-    try {
-        db.exec(`ALTER TABLE research_entries ADD COLUMN author_username TEXT`);
-        console.log('Added author_username column to research_entries');
-        // Backfill existing entries with 'admin' as default author
-        db.exec(`UPDATE research_entries SET author_username = 'admin' WHERE author_username IS NULL`);
-    } catch (e) {
-        // Column already exists, ignore
-    }
-
-    // Add soft delete columns to research_entries
-    try {
-        db.exec(`ALTER TABLE research_entries ADD COLUMN deleted_at DATETIME`);
-        console.log('Added deleted_at column to research_entries');
-    } catch (e) {
-        // Column already exists, ignore
-    }
-
-    try {
-        db.exec(`ALTER TABLE research_entries ADD COLUMN deleted_by TEXT`);
-        console.log('Added deleted_by column to research_entries');
-    } catch (e) {
-        // Column already exists, ignore
-    }
-
-    // Create entry_assets table for multiple images per entry
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS entry_assets (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            entry_id INTEGER NOT NULL,
-            asset_path TEXT NOT NULL,
-            sha256_hash TEXT NOT NULL,
-            caption TEXT,
-            display_order INTEGER DEFAULT 0,
-            created_at DATETIME DEFAULT CURRENT_TIMESTAMP,
-            FOREIGN KEY (entry_id) REFERENCES research_entries(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_assets_entry ON entry_assets(entry_id);
-    `);
-
-    // Create entry_infoboxes table for Wikipedia-style infoboxes
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS entry_infoboxes (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            entry_id INTEGER NOT NULL,
-            field_key TEXT NOT NULL,
-            field_value TEXT NOT NULL,
-            display_order INTEGER DEFAULT 0,
-            FOREIGN KEY (entry_id) REFERENCES research_entries(id) ON DELETE CASCADE
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_infobox_entry ON entry_infoboxes(entry_id);
-    `);
-
-    // Create index for soft delete filtering
-    db.exec(`CREATE INDEX IF NOT EXISTS idx_entries_deleted ON research_entries(deleted_at)`);
-
-    // Create activity_logs table for tracking user actions
-    db.exec(`
-        CREATE TABLE IF NOT EXISTS activity_logs (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            username TEXT NOT NULL,
-            action TEXT NOT NULL,
-            entity_type TEXT NOT NULL,
-            entity_id INTEGER,
-            entity_title TEXT,
-            details TEXT,
-            ip_address TEXT,
-            timestamp DATETIME DEFAULT CURRENT_TIMESTAMP
-        );
-
-        CREATE INDEX IF NOT EXISTS idx_logs_username ON activity_logs(username);
-        CREATE INDEX IF NOT EXISTS idx_logs_timestamp ON activity_logs(timestamp);
-        CREATE INDEX IF NOT EXISTS idx_logs_action ON activity_logs(action);
-    `);
-
-    // Create FTS5 virtual table if not exists
-    try {
-        db.exec(`
-            CREATE VIRTUAL TABLE IF NOT EXISTS research_fts USING fts5(
-                title,
-                content,
-                tags
-            );
-        `);
-    } catch (e) {
-        console.log('FTS5 table creation skipped:', e.message);
-    }
-
-    // Note: FTS5 table is manually managed through setEntryTags and updateFtsTags functions
-
-    // Check if migration is needed
-    const needsMigration = db.prepare("SELECT COUNT(*) as count FROM research_entries").get().count > 0 &&
-                          db.prepare("SELECT COUNT(*) as count FROM sqlite_master WHERE type='table' AND name='research_fts'").get().count === 0;
-
-    if (needsMigration) {
-        migrateExistingEntries();
-    }
-
-    // Migrate single assets to multi-asset table
-    try {
-        // Check if migration is needed (if there are entries with asset_path but no entry_assets)
-        const entriesWithAssets = db.prepare("SELECT COUNT(*) as count FROM research_entries WHERE asset_path IS NOT NULL").get().count;
-        const assetsInNewTable = db.prepare("SELECT COUNT(*) as count FROM entry_assets").get().count;
-
-        if (entriesWithAssets > 0 && assetsInNewTable === 0) {
-            migrateToMultiAssets();
-        }
-    } catch (e) {
-        console.log('Asset migration check skipped:', e.message);
-    }
-
-    // Seed Default Admin
-    const admin = db.prepare('SELECT * FROM users WHERE username = ?').get('admin');
-    if (!admin) {
-        createUser('admin', 'admin123', 'admin');
-        console.log('Default Admin Account Created: admin / admin123');
-    }
-
-    // Seed Test Editor
-    const editor = db.prepare('SELECT * FROM users WHERE username = ?').get('editor');
-    if (!editor) {
-        createUser('editor', 'editor123', 'editor');
-        console.log('Test Editor Account Created: editor / editor123');
-    }
-
-    // Seed Test Reader
-    const reader = db.prepare('SELECT * FROM users WHERE username = ?').get('reader');
-    if (!reader) {
-        createUser('reader', 'reader123', 'reader');
-        console.log('Test Reader Account Created: reader / reader123');
-    }
-
-    seedResearch();
-};
-
-const seedResearch = () => {
-    // Check if database already has data
-    const existingEntries = db.prepare('SELECT COUNT(*) as count FROM research_entries').get();
-    if (existingEntries.count > 0) {
-        console.log('Database already seeded, skipping seed data.');
-        return;
+// Seed sample research data
+const seedResearch = async () => {
+  try {
+    const existingEntries = await Entry.countDocuments();
+    if (existingEntries > 0) {
+      console.log('Database already seeded, skipping seed data.');
+      return;
     }
 
     console.log('Seeding Extended WW2 Knowledge Graph with Tags...');
 
     const samples = [
-        {
-            title: 'Operation Overlord',
-            content: 'Operation Overlord was the codename for the [[Battle of Normandy]], the Allied operation that launched the successful invasion of German-occupied Western Europe during World War II. The operation commenced on 6 June 1944 with the [[D-Day]] landings. A 1,200-plane airborne assault preceded an amphibious assault involving more than 5,000 vessels. Nearly 160,000 troops crossed the English Channel on 6 June, and more than two million Allied troops were in France by the end of August.',
-            tags: ['WW2', 'Military Operation', 'Allied Forces', '1944']
-        },
-        {
-            title: 'Battle of Normandy',
-            content: 'The Battle of Normandy lasted from June 1944 to August 1944, resulting in the Allied liberation of Western Europe from Nazi Germany\'s control. Key conflicts included the landings at [[Omaha Beach]], [[Pointe du Hoc]], and the capture of [[Pegasus Bridge]]. The battle concluded with the Liberation of Paris and the fall of the Falaise Pocket.',
-            tags: ['WW2', 'France', '1944', 'Allied Victory']
-        },
-        {
-            title: 'D-Day',
-            content: 'D-Day (June 6, 1944) marked the start of [[Operation Overlord]]. More than 156,000 American, British, and Canadian troops stormed 50 miles of Normandy\'s fiercely defended beaches. It remains the largest seaborne invasion in history. The operation was overseen by General [[Dwight D. Eisenhower]].',
-            tags: ['WW2', '1944', 'Normandy', 'Invasion']
-        },
-        {
-            title: 'Omaha Beach',
-            content: 'Omaha Beach was the code name for one of the five sectors of the Allied invasion of German-occupied France in the Normandy landings. It was the most heavily defended beach, assigned to the US 1st and 29th Infantry Divisions. The opposing German 352nd Infantry Division, under Field Marshal [[Erwin Rommel]]\'s broader command defenses, inflicted heavy casualties.',
-            tags: ['WW2', 'Normandy', '1944', 'US Forces']
-        },
-        {
-            title: 'Dwight D. Eisenhower',
-            content: 'General Dwight David "Ike" Eisenhower was the Supreme Commander of the Allied Expeditionary Force in Europe. He planned and supervised the invasion of North Africa in Operation Torch in 1942–1943 and the successful invasion of Normandy in 1944–1945 from the Western Front.',
-            tags: ['WW2', 'Allied Commander', 'US', 'Biography']
-        },
-        {
-            title: 'Erwin Rommel',
-            content: 'Erwin Rommel, popularly known as the Desert Fox, was a German field marshal of World War II. In 1944, he was entrusted with the defense of the French coast against the anticipated Allied invasion ([[Operation Overlord]]). He strengthened the Atlantic Wall significantly but was absent on [[D-Day]] due to his wife\'s birthday.',
-            tags: ['WW2', 'German Commander', 'Biography', 'Atlantic Wall']
-        },
-        {
-            title: '101st Airborne Division',
-            content: 'The 101st Airborne Division ("Screaming Eagles") is a specialized modular light infantry division of the US Army. During World War II, it was renowned for its role in [[Operation Overlord]], the airborne landings in the Netherlands (Operation Market Garden), and the Battle of the Bulge.',
-            tags: ['WW2', 'US Forces', 'Airborne', 'Military Unit']
-        },
-        {
-            title: 'Pointe du Hoc',
-            content: 'Pointe du Hoc is a promontory with a 100 ft (30 m) cliff overlooking the English Channel on the northwestern coast of Normandy. During World War II it was the highest point between Utah Beach to the west and [[Omaha Beach]] to the east. The German army fortified the area with concrete casemates and gun pits. On [[D-Day]], the United States Army Ranger Assault Group assaulted and captured Pointe du Hoc after scaling the cliffs.',
-            tags: ['WW2', 'Normandy', 'US Forces', '1944']
-        },
-        {
-            title: 'Pegasus Bridge',
-            content: 'Pegasus Bridge, originally the Bénouville Bridge, is a road bridge over the Caen Canal, between Caen and Ouistreham in Normandy. The successful capture of the bridge was a critical objective of the British airborne troops during the opening minutes of the Allied invasion of Normandy.',
-            tags: ['WW2', 'Normandy', 'British Forces', '1944']
-        }
+      {
+        title: 'Operation Overlord',
+        content: 'Operation Overlord was the codename for the [[Battle of Normandy]], the Allied operation that launched the successful invasion of German-occupied Western Europe during World War II. The operation commenced on 6 June 1944 with the [[D-Day]] landings.',
+        tags: ['WW2', 'Military Operation', 'Allied Forces', '1944']
+      },
+      {
+        title: 'Battle of Normandy',
+        content: 'The Battle of Normandy lasted from June 1944 to August 1944, resulting in the Allied liberation of Western Europe from Nazi Germany\'s control.',
+        tags: ['WW2', 'France', '1944', 'Allied Victory']
+      },
+      {
+        title: 'D-Day',
+        content: 'D-Day (June 6, 1944) marked the start of [[Operation Overlord]]. More than 156,000 American, British, and Canadian troops stormed 50 miles of Normandy\'s fiercely defended beaches.',
+        tags: ['WW2', '1944', 'Normandy', 'Invasion']
+      },
+      {
+        title: 'Dwight D. Eisenhower',
+        content: 'General Dwight David "Ike" Eisenhower was the Supreme Commander of the Allied Expeditionary Force in Europe.',
+        tags: ['WW2', 'Allied Commander', 'US', 'Biography']
+      },
+      {
+        title: 'Erwin Rommel',
+        content: 'Erwin Rommel, popularly known as the Desert Fox, was a German field marshal of World War II.',
+        tags: ['WW2', 'German Commander', 'Biography', 'Atlantic Wall']
+      }
     ];
 
-    const insert = db.prepare(`
-        INSERT INTO research_entries (title, content, asset_path, sha256_hash)
-        VALUES (?, ?, ?, ?)
-    `);
+    for (const sample of samples) {
+      // Get or create tags
+      const tagIds = [];
+      for (const tagName of sample.tags) {
+        const tagId = await getOrCreateTag(tagName);
+        if (tagId) tagIds.push(tagId);
+      }
 
-    samples.forEach(s => {
-        const sortedTags = (s.tags || []).slice().sort();
-        const tagsString = sortedTags.join(',');
+      const sortedTags = sample.tags.slice().sort();
+      const tagsString = sortedTags.join(',');
+      const masterHash = crypto
+        .createHash('sha256')
+        .update(`${sample.title}|${sample.content}|${tagsString}|no-assets|no-infobox`)
+        .digest('hex');
 
-        const masterHash = crypto
-            .createHash('sha256')
-            .update(`${s.title}|${s.content}|${tagsString}|no-asset`)
-            .digest('hex');
-
-        const result = insert.run(s.title, s.content, null, masterHash);
-        const entryId = result.lastInsertRowid;
-
-        // Add tags
-        if (s.tags) {
-            setEntryTags(entryId, s.tags);
-        }
-    });
-    console.log('Extended WW2 Knowledge Graph Seeded with Tags.');
-};
-
-const createUser = (username, password, role) => {
-    const salt = crypto.randomBytes(16).toString('hex');
-    const hash = crypto.scryptSync(password, salt, 64).toString('hex');
-    
-    try {
-        const insert = db.prepare('INSERT INTO users (username, salt, hash, role) VALUES (?, ?, ?, ?)');
-        insert.run(username, salt, hash, role);
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
+      await Entry.create({
+        title: sample.title,
+        content: sample.content,
+        tags: tagIds,
+        sha256Hash: masterHash,
+        authorUsername: 'admin'
+      });
     }
+
+    console.log('Extended WW2 Knowledge Graph Seeded with Tags.');
+  } catch (error) {
+    console.error('Error seeding research:', error.message);
+  }
 };
 
-const verifyUser = (username, password) => {
-    const user = db.prepare('SELECT * FROM users WHERE username = ? AND active = 1').get(username);
+// User Management Functions
+const createUser = async (username, password, role) => {
+  const salt = crypto.randomBytes(16).toString('hex');
+  const hash = crypto.scryptSync(password, salt, 64).toString('hex');
+
+  try {
+    await User.create({ username, salt, hash, role });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+const verifyUser = async (username, password) => {
+  try {
+    const user = await User.findOne({ username, active: true });
     if (!user) return { success: false, message: 'User not found or deactivated' };
 
     const hash = crypto.scryptSync(password, user.salt, 64).toString('hex');
     if (hash === user.hash) {
-        return { success: true, role: user.role, username: user.username };
+      return { success: true, role: user.role, username: user.username };
     }
     return { success: false, message: 'Invalid credentials' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
-const getAllUsers = () => {
-    return db.prepare('SELECT id, username, role, active, created_at FROM users ORDER BY created_at DESC').all();
+const getAllUsers = async () => {
+  try {
+    const users = await User.find({}, 'username role active createdAt').sort({ createdAt: -1 });
+    return users.map(u => ({
+      id: u._id.toString(),
+      username: u.username,
+      role: u.role,
+      active: u.active ? 1 : 0,
+      created_at: u.createdAt
+    }));
+  } catch (error) {
+    console.error('Error getting users:', error);
+    return [];
+  }
 };
 
-const deleteUser = (username) => {
-    try {
-        db.prepare('DELETE FROM users WHERE username = ?').run(username);
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+const deleteUser = async (username) => {
+  try {
+    await User.deleteOne({ username });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
-const updateUserRole = (username, newRole) => {
-    try {
-        db.prepare('UPDATE users SET role = ? WHERE username = ?').run(newRole, username);
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+const updateUserRole = async (username, newRole) => {
+  try {
+    await User.updateOne({ username }, { role: newRole });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
-const toggleUserActive = (username) => {
-    try {
-        const user = db.prepare('SELECT active FROM users WHERE username = ?').get(username);
-        if (!user) return { success: false, message: 'User not found' };
+const toggleUserActive = async (username) => {
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return { success: false, message: 'User not found' };
 
-        const newActive = user.active === 1 ? 0 : 1;
-        db.prepare('UPDATE users SET active = ? WHERE username = ?').run(newActive, username);
-        return { success: true, active: newActive };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+    user.active = !user.active;
+    await user.save();
+    return { success: true, active: user.active ? 1 : 0 };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
-/**
- * Saves assets using Content-Addressable logic in the Hardened path.
- */
+// Asset Management
 const saveAssetWithHash = (sourcePath) => {
   const fileBuffer = fs.readFileSync(sourcePath);
   const hash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
@@ -468,388 +210,585 @@ const saveAssetWithHash = (sourcePath) => {
   return { hash, fileName };
 };
 
-/**
- * Calculate hash chain for all assets of an entry
- * @param {number} entryId
- * @returns {string} SHA256 hash of all asset hashes or 'no-assets'
- */
-const calculateAssetsHash = (entryId) => {
-  const assets = db.prepare(`
-    SELECT sha256_hash FROM entry_assets
-    WHERE entry_id = ?
-    ORDER BY display_order, id
-  `).all(entryId);
+// Tag Management
+const getOrCreateTag = async (tagName) => {
+  const normalized = tagName.trim().toLowerCase();
+  if (!normalized) return null;
 
-  if (assets.length === 0) return 'no-assets';
-
-  const chain = assets.map(a => a.sha256_hash).join('|');
-  return crypto.createHash('sha256').update(chain).digest('hex');
+  try {
+    let tag = await Tag.findOne({ name: normalized });
+    if (!tag) {
+      tag = await Tag.create({ name: normalized });
+    }
+    return tag._id;
+  } catch (error) {
+    // Handle duplicate key error (race condition)
+    if (error.code === 11000) {
+      const tag = await Tag.findOne({ name: normalized });
+      return tag?._id;
+    }
+    console.error('Error creating tag:', error);
+    return null;
+  }
 };
 
-/**
- * Calculate hash for all infobox fields of an entry
- * @param {number} entryId
- * @returns {string} SHA256 hash of all infobox key:value pairs or 'no-infobox'
- */
-const calculateInfoboxHash = (entryId) => {
-  const infoboxFields = db.prepare(`
-    SELECT field_key, field_value FROM entry_infoboxes
-    WHERE entry_id = ?
-    ORDER BY field_key
-  `).all(entryId);
+const setEntryTags = async (entryId, tagNames = []) => {
+  try {
+    const tagIds = [];
+    for (const tagName of tagNames) {
+      const tagId = await getOrCreateTag(tagName);
+      if (tagId) tagIds.push(tagId);
+    }
 
-  if (infoboxFields.length === 0) return 'no-infobox';
-
-  const chain = infoboxFields.map(f => `${f.field_key}:${f.field_value}`).join('|');
-  return crypto.createHash('sha256').update(chain).digest('hex');
+    await Entry.updateOne({ _id: entryId }, { tags: tagIds, updatedAt: new Date() });
+  } catch (error) {
+    console.error('Error setting entry tags:', error);
+  }
 };
 
-/**
- * Recalculate and update the master hash for an entry
- * @param {number} entryId
- */
-const recalculateEntryHash = (entryId) => {
-  const entry = db.prepare('SELECT * FROM research_entries WHERE id = ?').get(entryId);
-  if (!entry) return;
+const getEntryTags = async (entryId) => {
+  try {
+    const entry = await Entry.findById(entryId).populate('tags', 'name');
+    if (!entry) return [];
 
-  const tags = getEntryTags(entryId);
+    return entry.tags.map(t => ({
+      id: t._id.toString(),
+      name: t.name,
+      tag_name: t.name // For compatibility
+    }));
+  } catch (error) {
+    console.error('Error getting entry tags:', error);
+    return [];
+  }
+};
+
+const getAllTags = async () => {
+  try {
+    const tags = await Tag.aggregate([
+      {
+        $lookup: {
+          from: 'entries',
+          localField: '_id',
+          foreignField: 'tags',
+          as: 'entries'
+        }
+      },
+      {
+        $project: {
+          id: '$_id',
+          name: 1,
+          count: { $size: '$entries' }
+        }
+      },
+      { $sort: { count: -1, name: 1 } }
+    ]);
+
+    return tags;
+  } catch (error) {
+    console.error('Error getting all tags:', error);
+    return [];
+  }
+};
+
+// Entry Management
+const getEntries = async () => {
+  try {
+    const entries = await Entry.find({ deletedAt: null })
+      .populate('tags', 'name')
+      .sort({ createdAt: -1 });
+
+    return entries.map(e => formatEntry(e));
+  } catch (error) {
+    console.error('Error getting entries:', error);
+    return [];
+  }
+};
+
+const getEntryById = async (entryId) => {
+  try {
+    const entry = await Entry.findById(entryId).populate('tags', 'name');
+    return entry ? formatEntry(entry) : null;
+  } catch (error) {
+    console.error('Error getting entry:', error);
+    return null;
+  }
+};
+
+const formatEntry = (entry) => ({
+  id: entry._id.toString(),
+  title: entry.title,
+  content: entry.content,
+  sha256_hash: entry.sha256Hash,
+  ipfs_cid: entry.ipfsCid,
+  author_username: entry.authorUsername,
+  timestamp: entry.createdAt,
+  created_at: entry.createdAt,
+  updated_at: entry.updatedAt,
+  deleted_at: entry.deletedAt,
+  deleted_by: entry.deletedBy,
+  tags: entry.tags?.map(t => t.name) || []
+});
+
+const createEntry = async ({ title, content, tags = [], infobox = [], assets = [], authorUsername }) => {
+  try {
+    // Get or create tags
+    const tagIds = [];
+    for (const tagName of tags) {
+      const tagId = await getOrCreateTag(tagName);
+      if (tagId) tagIds.push(tagId);
+    }
+
+    // Calculate hash
+    const sortedTags = tags.slice().sort();
+    const tagsString = sortedTags.join(',');
+    const assetsHash = assets.length > 0
+      ? crypto.createHash('sha256').update(assets.map(a => a.hash).join('|')).digest('hex')
+      : 'no-assets';
+    const infoboxHash = infobox.length > 0
+      ? crypto.createHash('sha256').update(infobox.map(f => `${f.key}:${f.value}`).sort().join('|')).digest('hex')
+      : 'no-infobox';
+
+    const masterHash = crypto
+      .createHash('sha256')
+      .update(`${title}|${content}|${tagsString}|${assetsHash}|${infoboxHash}`)
+      .digest('hex');
+
+    const entry = await Entry.create({
+      title,
+      content,
+      sha256Hash: masterHash,
+      authorUsername,
+      tags: tagIds,
+      assets: assets.map((a, idx) => ({
+        assetPath: a.fileName,
+        sha256Hash: a.hash,
+        caption: '',
+        displayOrder: idx
+      })),
+      infobox: infobox.map((f, idx) => ({
+        fieldKey: f.key,
+        fieldValue: f.value,
+        displayOrder: idx
+      }))
+    });
+
+    return { success: true, entryId: entry._id.toString() };
+  } catch (error) {
+    console.error('Error creating entry:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], removedAssetIds = [] }) => {
+  try {
+    const entry = await Entry.findById(entryId);
+    if (!entry) return { success: false, message: 'Entry not found' };
+
+    // Get or create tags
+    const tagIds = [];
+    for (const tagName of tags) {
+      const tagId = await getOrCreateTag(tagName);
+      if (tagId) tagIds.push(tagId);
+    }
+
+    // Remove specified assets
+    if (removedAssetIds.length > 0) {
+      entry.assets = entry.assets.filter(a => !removedAssetIds.includes(a._id.toString()));
+    }
+
+    // Update fields
+    entry.title = title;
+    entry.content = content;
+    entry.tags = tagIds;
+    entry.infobox = infobox.map((f, idx) => ({
+      fieldKey: f.key,
+      fieldValue: f.value,
+      displayOrder: f.displayOrder || idx
+    }));
+    entry.updatedAt = new Date();
+
+    // Recalculate hash
+    const sortedTags = tags.slice().sort();
+    const tagsString = sortedTags.join(',');
+    const assetsHash = entry.assets.length > 0
+      ? crypto.createHash('sha256').update(entry.assets.map(a => a.sha256Hash).join('|')).digest('hex')
+      : 'no-assets';
+    const infoboxHash = entry.infobox.length > 0
+      ? crypto.createHash('sha256').update(entry.infobox.map(f => `${f.fieldKey}:${f.fieldValue}`).sort().join('|')).digest('hex')
+      : 'no-infobox';
+
+    entry.sha256Hash = crypto
+      .createHash('sha256')
+      .update(`${title}|${content}|${tagsString}|${assetsHash}|${infoboxHash}`)
+      .digest('hex');
+
+    await entry.save();
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating entry:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+const deleteEntry = async (entryId, deletedBy) => {
+  try {
+    await Entry.updateOne(
+      { _id: entryId },
+      { deletedAt: new Date(), deletedBy }
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+const restoreEntry = async (entryId) => {
+  try {
+    await Entry.updateOne(
+      { _id: entryId },
+      { deletedAt: null, deletedBy: null }
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+// Asset Management for Entries
+const addEntryAssets = async (entryId, assets) => {
+  try {
+    const entry = await Entry.findById(entryId);
+    if (!entry) return { success: false, message: 'Entry not found' };
+
+    const startOrder = entry.assets.length;
+    for (let i = 0; i < assets.length; i++) {
+      entry.assets.push({
+        assetPath: assets[i].fileName,
+        sha256Hash: assets[i].hash,
+        caption: '',
+        displayOrder: startOrder + i
+      });
+    }
+
+    // Recalculate hash
+    await recalculateEntryHash(entry);
+    await entry.save();
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+const getEntryAssets = async (entryId) => {
+  try {
+    const entry = await Entry.findById(entryId);
+    if (!entry) return [];
+
+    return entry.assets.map(a => ({
+      id: a._id.toString(),
+      asset_path: a.assetPath,
+      sha256_hash: a.sha256Hash,
+      caption: a.caption,
+      display_order: a.displayOrder
+    }));
+  } catch (error) {
+    console.error('Error getting entry assets:', error);
+    return [];
+  }
+};
+
+const updateAssetCaption = async (assetId, caption) => {
+  try {
+    await Entry.updateOne(
+      { 'assets._id': assetId },
+      { $set: { 'assets.$.caption': caption } }
+    );
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+// Infobox Management
+const getEntryInfobox = async (entryId) => {
+  try {
+    const entry = await Entry.findById(entryId);
+    if (!entry) return [];
+
+    return entry.infobox.map(f => ({
+      field_key: f.fieldKey,
+      field_value: f.fieldValue,
+      display_order: f.displayOrder
+    }));
+  } catch (error) {
+    console.error('Error getting entry infobox:', error);
+    return [];
+  }
+};
+
+// Search
+const searchEntries = async (query) => {
+  if (!query || !query.trim()) return [];
+
+  try {
+    const searchTerm = query.trim();
+    const regex = new RegExp(searchTerm, 'i');
+
+    const entries = await Entry.find({
+      deletedAt: null,
+      $or: [
+        { title: regex },
+        { content: regex }
+      ]
+    })
+      .populate('tags', 'name')
+      .sort({ createdAt: -1 })
+      .limit(50);
+
+    return entries.map(e => formatEntry(e));
+  } catch (error) {
+    console.error('Search error:', error);
+    return [];
+  }
+};
+
+const searchAutocomplete = async (query) => {
+  if (!query || query.trim().length < 1) return [];
+
+  try {
+    const searchTerm = query.trim();
+    const regex = new RegExp(searchTerm, 'i');
+
+    const entries = await Entry.find({
+      deletedAt: null,
+      $or: [
+        { title: regex },
+        { content: regex }
+      ]
+    })
+      .populate('tags', 'name')
+      .sort({ createdAt: -1 })
+      .limit(8);
+
+    return entries.map(e => ({
+      id: e._id.toString(),
+      title: e.title,
+      snippet: e.content.substring(0, 100),
+      tags: e.tags?.map(t => t.name) || []
+    }));
+  } catch (error) {
+    console.error('Autocomplete error:', error);
+    return [];
+  }
+};
+
+// Hash Calculation
+const recalculateEntryHash = async (entry) => {
+  const tags = await Tag.find({ _id: { $in: entry.tags } });
   const sortedTags = tags.map(t => t.name).sort();
   const tagsString = sortedTags.join(',');
-  const assetsHash = calculateAssetsHash(entryId);
-  const infoboxHash = calculateInfoboxHash(entryId);
 
-  const newMasterHash = crypto
+  const assetsHash = entry.assets.length > 0
+    ? crypto.createHash('sha256').update(entry.assets.map(a => a.sha256Hash).join('|')).digest('hex')
+    : 'no-assets';
+
+  const infoboxHash = entry.infobox.length > 0
+    ? crypto.createHash('sha256').update(entry.infobox.map(f => `${f.fieldKey}:${f.fieldValue}`).sort().join('|')).digest('hex')
+    : 'no-infobox';
+
+  entry.sha256Hash = crypto
     .createHash('sha256')
     .update(`${entry.title}|${entry.content}|${tagsString}|${assetsHash}|${infoboxHash}`)
     .digest('hex');
-
-  db.prepare('UPDATE research_entries SET sha256_hash = ? WHERE id = ?')
-    .run(newMasterHash, entryId);
 };
 
-/**
- * Get all assets for an entry
- * @param {number} entryId
- * @returns {Array} Array of asset objects
- */
-const getEntryAssets = (entryId) => {
-  return db.prepare(`
-    SELECT id, asset_path, sha256_hash, caption, display_order
-    FROM entry_assets
-    WHERE entry_id = ?
-    ORDER BY display_order, id
-  `).all(entryId);
-};
+// Integrity Verification
+const verifyIntegrity = async () => {
+  try {
+    const entries = await Entry.find({}).populate('tags', 'name');
+    const compromised = [];
 
-/**
- * Get infobox fields for an entry
- * @param {number} entryId
- * @returns {Array} Array of infobox field objects
- */
-const getEntryInfobox = (entryId) => {
-  return db.prepare(`
-    SELECT field_key, field_value, display_order
-    FROM entry_infoboxes
-    WHERE entry_id = ?
-    ORDER BY display_order
-  `).all(entryId);
-};
+    for (const entry of entries) {
+      let reason = null;
 
-const verifyIntegrity = () => {
-  const entries = db.prepare('SELECT * FROM research_entries').all();
-  const compromised = [];
+      // Verify each asset
+      for (const asset of entry.assets) {
+        const filePath = path.join(assetDir, asset.assetPath);
+        if (fs.existsSync(filePath)) {
+          const fileBuffer = fs.readFileSync(filePath);
+          const calculatedHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
 
-  for (const entry of entries) {
-    let reason = null;
-
-    // Get assets and verify each one exists with correct hash
-    const assets = getEntryAssets(entry.id);
-    const assetHashes = [];
-
-    for (const asset of assets) {
-      const filePath = path.join(assetDir, asset.asset_path);
-      if (fs.existsSync(filePath)) {
-        const fileBuffer = fs.readFileSync(filePath);
-        const calculatedHash = crypto.createHash('sha256').update(fileBuffer).digest('hex');
-
-        if (calculatedHash !== asset.sha256_hash) {
-          reason = 'Asset Content Tampered';
+          if (calculatedHash !== asset.sha256Hash) {
+            reason = 'Asset Content Tampered';
+            break;
+          }
+        } else {
+          reason = 'Asset Missing';
           break;
         }
-        assetHashes.push(asset.sha256_hash);
-      } else {
-        reason = 'Asset Missing';
-        break;
+      }
+
+      // Calculate expected hash
+      const sortedTags = entry.tags.map(t => t.name).sort();
+      const tagsString = sortedTags.join(',');
+
+      const assetsHash = entry.assets.length > 0
+        ? crypto.createHash('sha256').update(entry.assets.map(a => a.sha256Hash).join('|')).digest('hex')
+        : 'no-assets';
+
+      const infoboxHash = entry.infobox.length > 0
+        ? crypto.createHash('sha256').update(entry.infobox.map(f => `${f.fieldKey}:${f.fieldValue}`).sort().join('|')).digest('hex')
+        : 'no-infobox';
+
+      const calculatedMasterHash = crypto
+        .createHash('sha256')
+        .update(`${entry.title}|${entry.content}|${tagsString}|${assetsHash}|${infoboxHash}`)
+        .digest('hex');
+
+      if (calculatedMasterHash !== entry.sha256Hash) {
+        compromised.push({
+          id: entry._id.toString(),
+          title: entry.title,
+          reason: reason || 'Metadata/Content Tampered'
+        });
+      } else if (reason) {
+        compromised.push({
+          id: entry._id.toString(),
+          title: entry.title,
+          reason
+        });
       }
     }
 
-    // Calculate assets hash
-    const assetsHash = assetHashes.length > 0
-      ? crypto.createHash('sha256').update(assetHashes.join('|')).digest('hex')
-      : 'no-assets';
-
-    // Get tags for this entry
-    const tags = getEntryTags(entry.id);
-    const sortedTags = tags.map(t => t.name).sort();
-    const tagsString = sortedTags.join(',');
-
-    // Get infobox and calculate hash
-    const infoboxFields = getEntryInfobox(entry.id);
-    const infoboxHash = infoboxFields.length > 0
-      ? crypto.createHash('sha256')
-          .update(infoboxFields.map(f => `${f.field_key}:${f.field_value}`).sort().join('|'))
-          .digest('hex')
-      : 'no-infobox';
-
-    // Calculate master hash with new formula
-    const calculatedMasterHash = crypto
-      .createHash('sha256')
-      .update(`${entry.title}|${entry.content}|${tagsString}|${assetsHash}|${infoboxHash}`)
-      .digest('hex');
-
-    if (calculatedMasterHash !== entry.sha256_hash) {
-      compromised.push({
-        id: entry.id,
-        title: entry.title,
-        reason: reason || 'Metadata/Content Tampered',
-      });
-    } else if (reason) {
-      // Asset issue but hash still mismatches
-      compromised.push({
-        id: entry.id,
-        title: entry.title,
-        reason: reason
-      });
-    }
-  }
-  return compromised;
-};
-
-/**
- * Get or create a tag (case-insensitive)
- * Returns tag ID
- */
-const getOrCreateTag = (tagName) => {
-  const normalized = tagName.trim();
-  if (!normalized) return null;
-
-  // Try to find existing tag (case-insensitive due to COLLATE NOCASE)
-  let tag = db.prepare('SELECT id FROM tags WHERE name = ?').get(normalized);
-
-  if (!tag) {
-    // Create new tag
-    const result = db.prepare('INSERT INTO tags (name) VALUES (?)').run(normalized);
-    return result.lastInsertRowid;
-  }
-
-  return tag.id;
-};
-
-/**
- * Associate tags with an entry
- * @param {number} entryId
- * @param {string[]} tagNames - Array of tag names
- */
-const setEntryTags = (entryId, tagNames = []) => {
-  // Clear existing associations
-  db.prepare('DELETE FROM entry_tags WHERE entry_id = ?').run(entryId);
-
-  // Add new associations
-  const insertLink = db.prepare('INSERT OR IGNORE INTO entry_tags (entry_id, tag_id) VALUES (?, ?)');
-
-  for (const tagName of tagNames) {
-    const tagId = getOrCreateTag(tagName);
-    if (tagId) {
-      insertLink.run(entryId, tagId);
-    }
-  }
-
-  // Update FTS5 tags column
-  updateFtsTags(entryId);
-};
-
-/**
- * Get all tags for an entry
- */
-const getEntryTags = (entryId) => {
-  return db.prepare(`
-    SELECT t.id, t.name
-    FROM tags t
-    INNER JOIN entry_tags et ON et.tag_id = t.id
-    WHERE et.entry_id = ?
-    ORDER BY t.name
-  `).all(entryId);
-};
-
-/**
- * Get all unique tags with usage count (for autocomplete)
- */
-const getAllTags = () => {
-  return db.prepare(`
-    SELECT t.id, t.name, COUNT(et.entry_id) as count
-    FROM tags t
-    LEFT JOIN entry_tags et ON et.tag_id = t.id
-    GROUP BY t.id, t.name
-    ORDER BY count DESC, t.name ASC
-  `).all();
-};
-
-/**
- * Update FTS5 entry for a specific entry
- */
-const updateFtsTags = (entryId) => {
-  const entry = db.prepare('SELECT * FROM research_entries WHERE id = ?').get(entryId);
-  if (!entry) return;
-
-  const tags = getEntryTags(entryId);
-  const tagString = tags.map(t => t.name).join(' ');
-
-  // Delete existing FTS5 entry
-  db.prepare('DELETE FROM research_fts WHERE rowid = ?').run(entryId);
-
-  // Insert updated FTS5 entry
-  db.prepare('INSERT INTO research_fts(rowid, title, content, tags) VALUES (?, ?, ?, ?)')
-    .run(entryId, entry.title, entry.content, tagString);
-};
-
-/**
- * Search entries using FTS5
- * @param {string} query - Search query
- * @returns {Array} Matching entry IDs ranked by relevance
- */
-const searchEntries = (query) => {
-  if (!query || !query.trim()) {
+    return compromised;
+  } catch (error) {
+    console.error('Integrity verification error:', error);
     return [];
   }
-
-  // FTS5 query syntax: searches across title, content, and tags
-  const results = db.prepare(`
-    SELECT rowid, rank
-    FROM research_fts
-    WHERE research_fts MATCH ?
-    ORDER BY rank
-    LIMIT 50
-  `).all(query);
-
-  return results.map(r => r.rowid);
 };
 
-/**
- * Log user activity
- * @param {string} username - Username performing the action
- * @param {string} action - Action type (create, edit, delete, restore, login, logout, etc.)
- * @param {string} entityType - Type of entity (entry, user, asset, etc.)
- * @param {number} entityId - ID of the entity (optional)
- * @param {string} entityTitle - Title/name of the entity (optional)
- * @param {string} details - Additional details (optional)
- */
-const logActivity = (username, action, entityType, entityId = null, entityTitle = null, details = null) => {
+// Activity Logging
+const logActivity = async (username, action, entityType, entityId = null, entityTitle = null, details = null) => {
   try {
-    db.prepare(`
-      INSERT INTO activity_logs (username, action, entity_type, entity_id, entity_title, details)
-      VALUES (?, ?, ?, ?, ?, ?)
-    `).run(username, action, entityType, entityId, entityTitle, details);
+    await ActivityLog.create({
+      username,
+      action,
+      entityType,
+      entityId,
+      entityTitle,
+      details
+    });
   } catch (error) {
     console.error('Failed to log activity:', error);
   }
 };
 
-/**
- * Get activity logs with filtering and pagination
- * @param {Object} options - Filter options
- * @returns {Array} Activity logs
- */
-const getActivityLogs = (options = {}) => {
-  const {
-    username = null,
-    action = null,
-    entityType = null,
-    limit = 100,
-    offset = 0
-  } = options;
+const getActivityLogs = async (options = {}) => {
+  const { username, action, entityType, limit = 100, offset = 0 } = options;
 
-  let query = 'SELECT * FROM activity_logs WHERE 1=1';
-  const params = [];
+  try {
+    const filter = {};
+    if (username) filter.username = username;
+    if (action) filter.action = action;
+    if (entityType) filter.entityType = entityType;
 
-  if (username) {
-    query += ' AND username = ?';
-    params.push(username);
+    const logs = await ActivityLog.find(filter)
+      .sort({ timestamp: -1 })
+      .skip(offset)
+      .limit(limit);
+
+    return logs.map(l => ({
+      id: l._id.toString(),
+      username: l.username,
+      action: l.action,
+      entity_type: l.entityType,
+      entity_id: l.entityId?.toString(),
+      entity_title: l.entityTitle,
+      details: l.details,
+      timestamp: l.timestamp
+    }));
+  } catch (error) {
+    console.error('Error getting activity logs:', error);
+    return [];
   }
-
-  if (action) {
-    query += ' AND action = ?';
-    params.push(action);
-  }
-
-  if (entityType) {
-    query += ' AND entity_type = ?';
-    params.push(entityType);
-  }
-
-  query += ' ORDER BY timestamp DESC LIMIT ? OFFSET ?';
-  params.push(limit, offset);
-
-  return db.prepare(query).all(...params);
 };
 
-/**
- * Get activity log statistics
- * @returns {Object} Statistics about activity logs
- */
-const getLogStats = () => {
-  const totalLogs = db.prepare('SELECT COUNT(*) as count FROM activity_logs').get().count;
-  const uniqueUsers = db.prepare('SELECT COUNT(DISTINCT username) as count FROM activity_logs').get().count;
+const getLogStats = async () => {
+  try {
+    const totalLogs = await ActivityLog.countDocuments();
+    const uniqueUsers = await ActivityLog.distinct('username').then(u => u.length);
 
-  const recentActions = db.prepare(`
-    SELECT action, COUNT(*) as count
-    FROM activity_logs
-    WHERE timestamp > datetime('now', '-7 days')
-    GROUP BY action
-    ORDER BY count DESC
-  `).all();
+    const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
+    const recentActions = await ActivityLog.aggregate([
+      { $match: { timestamp: { $gte: sevenDaysAgo } } },
+      { $group: { _id: '$action', count: { $sum: 1 } } },
+      { $sort: { count: -1 } }
+    ]);
 
-  const topUsers = db.prepare(`
-    SELECT username, COUNT(*) as count
-    FROM activity_logs
-    GROUP BY username
-    ORDER BY count DESC
-    LIMIT 5
-  `).all();
+    const topUsers = await ActivityLog.aggregate([
+      { $group: { _id: '$username', count: { $sum: 1 } } },
+      { $sort: { count: -1 } },
+      { $limit: 5 }
+    ]);
 
-  return {
-    totalLogs,
-    uniqueUsers,
-    recentActions,
-    topUsers
-  };
+    return {
+      totalLogs,
+      uniqueUsers,
+      recentActions: recentActions.map(r => ({ action: r._id, count: r.count })),
+      topUsers: topUsers.map(u => ({ username: u._id, count: u.count }))
+    };
+  } catch (error) {
+    console.error('Error getting log stats:', error);
+    return { totalLogs: 0, uniqueUsers: 0, recentActions: [], topUsers: [] };
+  }
 };
 
 module.exports = {
   initDB,
-  db,
-  saveAssetWithHash,
-  verifyIntegrity,
+  // Connection
+  connect: mongoConnection.connect,
+  disconnect: mongoConnection.disconnect,
+  getConnectionStatus: mongoConnection.getStatus,
+  getConnectionConfig: mongoConnection.getConfig,
+  updateConnectionConfig: mongoConnection.updateConfig,
+  testConnection: mongoConnection.testConnection,
+  // Paths
+  assetDir,
+  userDataPath,
+  // User management
   createUser,
   verifyUser,
   getAllUsers,
   deleteUser,
   updateUserRole,
   toggleUserActive,
-  assetDir,
-  vaultDir,
-  userDataPath,
+  // Asset management
+  saveAssetWithHash,
+  // Tag management
   getOrCreateTag,
   setEntryTags,
   getEntryTags,
   getAllTags,
-  searchEntries,
-  // New functions for multi-asset and infobox support
-  calculateAssetsHash,
-  calculateInfoboxHash,
-  recalculateEntryHash,
+  // Entry management
+  getEntries,
+  getEntryById,
+  createEntry,
+  updateEntry,
+  deleteEntry,
+  restoreEntry,
+  // Entry assets
+  addEntryAssets,
   getEntryAssets,
+  updateAssetCaption,
+  // Infobox
   getEntryInfobox,
-  // Activity logging functions
+  // Search
+  searchEntries,
+  searchAutocomplete,
+  // Integrity
+  verifyIntegrity,
+  // Activity logging
   logActivity,
   getActivityLogs,
   getLogStats

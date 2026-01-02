@@ -1,6 +1,13 @@
 const { contextBridge, ipcRenderer } = require('electron');
 
 contextBridge.exposeInMainWorld('wikiAPI', {
+  // Database Connection
+  getDbStatus: () => ipcRenderer.invoke('get-db-status'),
+  getDbConfig: () => ipcRenderer.invoke('get-db-config'),
+  updateDbConfig: (config) => ipcRenderer.invoke('update-db-config', config),
+  testDbConnection: (uri) => ipcRenderer.invoke('test-db-connection', uri),
+  reconnectDb: () => ipcRenderer.invoke('reconnect-db'),
+  // Entry operations
   saveEntry: (data) => ipcRenderer.invoke('save-wiki-entry', data),
   getEntries: () => ipcRenderer.invoke('get-wiki-entries'),
   getAllTags: () => ipcRenderer.invoke('get-all-tags'),

@@ -21,6 +21,10 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
   const [selectedHashtagIndex, setSelectedHashtagIndex] = useState(0);
   const [allTags, setAllTags] = useState([]);
   const [activeField, setActiveField] = useState(''); // 'title' or 'content'
+
+  // Debounce ref for hashtag search
+  const hashtagDebounceRef = useRef(null);
+
   const textareaRef = useRef(null);
   const titleInputRef = useRef(null);
 
@@ -62,7 +66,7 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     }
   }, [mode, entry]);
 
-  // Generic hashtag detection handler
+  // Generic hashtag detection handler with debouncing
   const detectHashtag = (text, cursorPos, field) => {
     const textBeforeCursor = text.substring(0, cursorPos);
     const hashtagMatch = textBeforeCursor.match(/#([\w_]*)$/);
@@ -72,14 +76,22 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
       setHashtagQuery(query);
       setActiveField(field);
 
-      // Filter tags that match the query
-      const filtered = allTags
-        .filter(t => t.name.toLowerCase().startsWith(query.toLowerCase()))
-        .slice(0, 5);
+      // Clear previous debounce timer
+      if (hashtagDebounceRef.current) {
+        clearTimeout(hashtagDebounceRef.current);
+      }
 
-      setHashtagSuggestions(filtered);
-      setShowHashtagSuggestions(filtered.length > 0);
-      setSelectedHashtagIndex(0);
+      // Debounce the search
+      hashtagDebounceRef.current = setTimeout(() => {
+        // Filter tags that match the query
+        const filtered = allTags
+          .filter(t => t.name.toLowerCase().startsWith(query.toLowerCase()))
+          .slice(0, 5);
+
+        setHashtagSuggestions(filtered);
+        setShowHashtagSuggestions(filtered.length > 0);
+        setSelectedHashtagIndex(0);
+      }, 300);
 
       // Calculate position for dropdown
       if (field === 'content') {
@@ -99,6 +111,9 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
       }
     } else {
       setShowHashtagSuggestions(false);
+      if (hashtagDebounceRef.current) {
+        clearTimeout(hashtagDebounceRef.current);
+      }
     }
   };
 

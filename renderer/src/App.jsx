@@ -91,7 +91,7 @@ const App = () => {
   // Search autocomplete with debounce
   useEffect(() => {
     const timer = setTimeout(async () => {
-      if (searchQuery.trim().length >= 2) {
+      if (searchQuery.trim().length >= 1) {
         try {
           const suggestions = await window.wikiAPI.searchAutocomplete(searchQuery);
           setSearchSuggestions(suggestions || []);
@@ -307,39 +307,6 @@ const App = () => {
                 </div>
               </div>
 
-              {/* Search Bar - Centered */}
-              <div style={{ ...searchContainerStyle, position: 'relative' }}>
-                  <input
-                  ref={searchInputRef}
-                  type="text"
-                  placeholder="Search titles, content, and tags..."
-                  value={searchQuery}
-                  onChange={(e) => setSearchQuery(e.target.value)}
-                  onKeyDown={handleSearchKeyDown}
-                  style={searchFieldStyle}
-                  />
-                  {/* Search Autocomplete Dropdown */}
-                  {showSearchDropdown && searchSuggestions.length > 0 && (
-                    <div style={searchDropdownStyle}>
-                      {searchSuggestions.map((suggestion, index) => (
-                        <div
-                          key={suggestion.id}
-                          onClick={() => handleSelectSuggestion(suggestion)}
-                          style={{
-                            ...searchSuggestionItemStyle,
-                            backgroundColor: index === selectedSearchIndex ? '#f0f6ff' : '#fff'
-                          }}
-                          onMouseEnter={() => setSelectedSearchIndex(index)}
-                        >
-                          <span style={{ fontWeight: '500', color: '#202122' }}>
-                            {suggestion.title}
-                          </span>
-                        </div>
-                      ))}
-                    </div>
-                  )}
-              </div>
-
               {/* User Status */}
               <div style={{
                   fontSize: '0.85em',
@@ -539,7 +506,7 @@ const searchDropdownStyle = {
 };
 
 const searchSuggestionItemStyle = {
-  padding: '12px 16px',
+  padding: '10px 14px',
   cursor: 'pointer',
   borderBottom: '1px solid #f0f2f5',
   transition: 'background-color 0.15s'

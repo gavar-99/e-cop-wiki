@@ -1,7 +1,99 @@
-import React, { useMemo } from 'react';
-import { Calendar, Clock, Tag } from 'lucide-react';
+import React, { useMemo, useState, useRef, useEffect } from 'react';
+import { Calendar, Clock, Tag, Search } from 'lucide-react';
 
 const Dashboard = ({ entries, onNavigate }) => {
+  // Search state
+  const [searchQuery, setSearchQuery] = useState('');
+  const [searchSuggestions, setSearchSuggestions] = useState([]);
+  const [showSearchDropdown, setShowSearchDropdown] = useState(false);
+  const [selectedSearchIndex, setSelectedSearchIndex] = useState(0);
+  const searchInputRef = useRef(null);
+  const dropdownRef = useRef(null);
+
+  // Search autocomplete with debounce
+  useEffect(() => {
+    const timer = setTimeout(async () => {
+      if (searchQuery.trim().length >= 2) {
+        try {
+          console.log('Searching for:', searchQuery);
+          const suggestions = await window.wikiAPI.searchAutocomplete(searchQuery);
+          console.log('Search results:', suggestions);
+          setSearchSuggestions(suggestions || []);
+          setShowSearchDropdown(suggestions && suggestions.length > 0);
+          setSelectedSearchIndex(0);
+        } catch (error) {
+          console.error('Search autocomplete error:', error);
+          setSearchSuggestions([]);
+          setShowSearchDropdown(false);
+        }
+      } else {
+        setSearchSuggestions([]);
+        setShowSearchDropdown(false);
+      }
+    }, 300);
+
+    return () => clearTimeout(timer);
+  }, [searchQuery]);
+
+  // Close dropdown when clicking outside
+  useEffect(() => {
+    const handleClickOutside = (event) => {
+      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
+          searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+        setShowSearchDropdown(false);
+      }
+    };
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => document.removeEventListener('mousedown', handleClickOutside);
+  }, []);
+
+  const handleSearchKeyDown = async (e) => {
+    if (showSearchDropdown && searchSuggestions.length > 0) {
+      if (e.key === 'ArrowDown') {
+        e.preventDefault();
+        setSelectedSearchIndex((prev) =>
+          prev < searchSuggestions.length - 1 ? prev + 1 : prev
+        );
+      } else if (e.key === 'ArrowUp') {
+        e.preventDefault();
+        setSelectedSearchIndex((prev) => prev > 0 ? prev - 1 : 0);
+      } else if (e.key === 'Enter') {
+        e.preventDefault();
+        if (searchSuggestions[selectedSearchIndex]) {
+          handleSelectSuggestion(searchSuggestions[selectedSearchIndex]);
+        }
+      } else if (e.key === 'Escape') {
+        setShowSearchDropdown(false);
+      }
+    } else if (e.key === 'Enter' && searchQuery.trim()) {
+      e.preventDefault();
+      // First check if there's an exact match
+      const exactMatch = entries.find(entry => 
+        entry.title.toLowerCase() === searchQuery.trim().toLowerCase()
+      );
+      if (exactMatch) {
+        onNavigate(exactMatch.title);
+      } else {
+        // Try to get search results first
+        try {
+          const results = await window.wikiAPI.searchAutocomplete(searchQuery);
+          if (results && results.length > 0) {
+            // Navigate to the first result
+            onNavigate(results[0].title);
+          }
+        } catch (error) {
+          console.error('Search error:', error);
+        }
+      }
+      setSearchQuery('');
+    }
+  };
+
+  const handleSelectSuggestion = (suggestion) => {
+    setSearchQuery('');
+    setShowSearchDropdown(false);
+    onNavigate(suggestion.title);
+  };
   // Improved featured logic - prioritize entries with substantial content
   const featured = useMemo(() => {
     const candidates = entries.filter(e => e.content && e.content.length > 500);
@@ -41,6 +133,58 @@ const Dashboard = ({ entries, onNavigate }) => {
 
   return (
     <div style={{ padding: '30px 40px', maxWidth: '1400px', margin: '0 auto' }}>
+
+      {/* Main Search Bar */}
+      <div style={mainSearchContainerStyle}>
+        <div style={searchWrapperStyle} ref={dropdownRef}>
+          <Search size={18} style={{ color: '#72777d', marginRight: '10px' }} />
+          <input
+            ref={searchInputRef}
+            type="text"
+            placeholder="Search titles, content, and tags..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            onKeyDown={handleSearchKeyDown}
+            onFocus={() => searchQuery.trim().length >= 2 && searchSuggestions.length > 0 && setShowSearchDropdown(true)}
+            style={mainSearchInputStyle}
+          />
+          {/* Search Results Dropdown */}
+          {showSearchDropdown && searchSuggestions.length > 0 && (
+            <div style={mainSearchDropdownStyle}>
+              {searchSuggestions.map((suggestion, index) => (
+                <div
+                  key={suggestion.id}
+                  onClick={() => handleSelectSuggestion(suggestion)}
+                  style={{
+                    ...searchResultItemStyle,
+                    backgroundColor: index === selectedSearchIndex ? '#f0f6ff' : '#fff'
+                  }}
+                  onMouseEnter={() => setSelectedSearchIndex(index)}
+                >
+                  <div style={{ fontWeight: '600', color: '#0645ad', marginBottom: '4px', fontSize: '1.05em' }}>
+                    {suggestion.title}
+                  </div>
+                  {suggestion.snippet && (
+                    <div style={{ fontSize: '0.9em', color: '#54595d', marginBottom: '6px', lineHeight: '1.4' }}>
+                      {suggestion.snippet.substring(0, 120)}...
+                    </div>
+                  )}
+                  {suggestion.tags && suggestion.tags.length > 0 && (
+                    <div style={{ display: 'flex', gap: '6px', flexWrap: 'wrap' }}>
+                      {suggestion.tags.slice(0, 4).map((tag, i) => (
+                        <span key={i} style={searchTagStyle}>
+                          <Tag size={10} style={{ marginRight: '3px' }} />
+                          {tag}
+                        </span>
+                      ))}
+                    </div>
+                  )}
+                </div>
+              ))}
+            </div>
+          )}
+        </div>
+      </div>
 
       {/* Highlights Section - Full Width */}
       {featured && (
@@ -323,6 +467,67 @@ const onThisDayDateStyle = {
   marginBottom: '15px',
   paddingBottom: '10px',
   borderBottom: '1px solid #eaecf0'
+};
+
+// Main Search Bar Styles
+const mainSearchContainerStyle = {
+  display: 'flex',
+  justifyContent: 'center',
+  marginBottom: '40px'
+};
+
+const searchWrapperStyle = {
+  position: 'relative',
+  display: 'flex',
+  alignItems: 'center',
+  width: '100%',
+  maxWidth: '700px',
+  border: '1px solid #a2a9b1',
+  borderRadius: '24px',
+  padding: '12px 20px',
+  backgroundColor: '#fff',
+  boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
+  transition: 'border-color 0.2s, box-shadow 0.2s'
+};
+
+const mainSearchInputStyle = {
+  flex: 1,
+  border: 'none',
+  outline: 'none',
+  fontSize: '1.05em',
+  backgroundColor: 'transparent',
+  color: '#202122'
+};
+
+const mainSearchDropdownStyle = {
+  position: 'absolute',
+  top: 'calc(100% + 8px)',
+  left: 0,
+  right: 0,
+  backgroundColor: '#fff',
+  border: '1px solid #e1e4e8',
+  borderRadius: '12px',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
+  maxHeight: '450px',
+  overflowY: 'auto',
+  zIndex: 1000
+};
+
+const searchResultItemStyle = {
+  padding: '14px 18px',
+  cursor: 'pointer',
+  borderBottom: '1px solid #f0f2f5',
+  transition: 'background-color 0.15s'
+};
+
+const searchTagStyle = {
+  display: 'inline-flex',
+  alignItems: 'center',
+  fontSize: '0.8em',
+  padding: '3px 8px',
+  backgroundColor: '#e3f2fd',
+  color: '#1565c0',
+  borderRadius: '12px'
 };
 
 export default Dashboard;
