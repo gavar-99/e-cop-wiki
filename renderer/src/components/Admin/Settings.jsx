@@ -90,7 +90,7 @@ const AboutTab = () => {
       <p style={{ fontSize: '0.95em', color: '#72777d', lineHeight: '1.6', maxWidth: '500px', margin: '20px auto' }}>
         Secure, anti-censorship library for Mongolian political data.
         <br /><br />
-        Built with Electron, React, and SQLite.
+        Built with Electron, React, and MongoDB.
         <br />
         Powered by IPFS for decentralized storage.
       </p>

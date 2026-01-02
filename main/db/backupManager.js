@@ -2,12 +2,14 @@ const AdmZip = require('adm-zip');
 const fs = require('fs');
 const path = require('path');
 const os = require('os');
-const { db, assetDir, vaultDir, userDataPath, verifyIntegrity } = require('./dbManager');
+const { User, Tag, Entry, ActivityLog } = require('./models');
+const { assetDir, userDataPath } = require('./mongoConnection');
 
 const backupDir = path.join(userDataPath, 'backups');
 
 /**
- * Export database and assets to ZIP file
+ * Export database and assets to ZIP file (MongoDB version)
+ * Exports all collections as JSON files
  * @param {string} destinationPath - Full path to save the ZIP file
  * @returns {Object} Result object with success status
  */
@@ -15,20 +17,22 @@ const exportDatabase = async (destinationPath) => {
   try {
     const zip = new AdmZip();
 
-    // Get database path
-    const dbPath = path.join(vaultDir, 'vault.db');
+    // Export all collections as JSON
+    const users = await User.find({}).lean();
+    const tags = await Tag.find({}).lean();
+    const entries = await Entry.find({}).lean();
+    const activityLogs = await ActivityLog.find({}).lean();
 
-    if (!fs.existsSync(dbPath)) {
-      return { success: false, message: 'Database file not found' };
-    }
-
-    // Add database file
-    zip.addLocalFile(dbPath, '', 'vault.db');
+    // Add collection JSON files
+    zip.addFile('users.json', Buffer.from(JSON.stringify(users, null, 2)));
+    zip.addFile('tags.json', Buffer.from(JSON.stringify(tags, null, 2)));
+    zip.addFile('entries.json', Buffer.from(JSON.stringify(entries, null, 2)));
+    zip.addFile('activityLogs.json', Buffer.from(JSON.stringify(activityLogs, null, 2)));
 
     // Add all assets
     if (fs.existsSync(assetDir)) {
       const assetFiles = fs.readdirSync(assetDir);
-      assetFiles.forEach(file => {
+      assetFiles.forEach((file) => {
         const filePath = path.join(assetDir, file);
         if (fs.statSync(filePath).isFile()) {
           zip.addLocalFile(filePath, 'assets', file);
@@ -38,13 +42,14 @@ const exportDatabase = async (destinationPath) => {
 
     // Add metadata
     const metadata = {
-      version: '1.0.0',
+      version: '2.0.0',
+      dbType: 'mongodb',
       timestamp: new Date().toISOString(),
       app: 'E-Cop Wiki',
-      entryCount: db.prepare('SELECT COUNT(*) as count FROM research_entries').get().count,
-      userCount: db.prepare('SELECT COUNT(*) as count FROM users').get().count,
-      tagCount: db.prepare('SELECT COUNT(*) as count FROM tags').get().count,
-      assetCount: fs.existsSync(assetDir) ? fs.readdirSync(assetDir).length : 0
+      entryCount: entries.length,
+      userCount: users.length,
+      tagCount: tags.length,
+      assetCount: fs.existsSync(assetDir) ? fs.readdirSync(assetDir).length : 0,
     };
     zip.addFile('metadata.json', Buffer.from(JSON.stringify(metadata, null, 2)));
 
@@ -54,7 +59,7 @@ const exportDatabase = async (destinationPath) => {
     return {
       success: true,
       path: destinationPath,
-      metadata
+      metadata,
     };
   } catch (error) {
     console.error('Export error:', error);
@@ -63,7 +68,7 @@ const exportDatabase = async (destinationPath) => {
 };
 
 /**
- * Import database from ZIP file
+ * Import database from ZIP file (MongoDB version)
  * @param {string} zipPath - Path to the ZIP file to import
  * @returns {Object} Result object with success status
  */
@@ -74,67 +79,74 @@ const importDatabase = async (zipPath) => {
     const zip = new AdmZip(zipPath);
     const zipEntries = zip.getEntries();
 
-    // Validate ZIP structure
-    const hasDb = zipEntries.some(e => e.entryName === 'vault.db');
-    if (!hasDb) {
-      return { success: false, message: 'Invalid backup: vault.db not found' };
+    // Check if it's a MongoDB backup (has entries.json) or old SQLite backup (has vault.db)
+    const hasEntriesJson = zipEntries.some((e) => e.entryName === 'entries.json');
+    const hasVaultDb = zipEntries.some((e) => e.entryName === 'vault.db');
+
+    if (hasVaultDb && !hasEntriesJson) {
+      return {
+        success: false,
+        message: 'This is an old SQLite backup. MongoDB backups are required (v2.0+).',
+      };
+    }
+
+    if (!hasEntriesJson) {
+      return { success: false, message: 'Invalid backup: entries.json not found' };
     }
 
     // Extract to temporary location first
     tempDir = path.join(os.tmpdir(), `ecop-restore-${Date.now()}`);
     fs.mkdirSync(tempDir, { recursive: true });
-
     zip.extractAllTo(tempDir, true);
 
-    // Validate extracted database
-    const tempDbPath = path.join(tempDir, 'vault.db');
-    if (!fs.existsSync(tempDbPath)) {
-      throw new Error('Database extraction failed');
+    // Read exported data
+    const usersData = JSON.parse(fs.readFileSync(path.join(tempDir, 'users.json'), 'utf-8'));
+    const tagsData = JSON.parse(fs.readFileSync(path.join(tempDir, 'tags.json'), 'utf-8'));
+    const entriesData = JSON.parse(fs.readFileSync(path.join(tempDir, 'entries.json'), 'utf-8'));
+
+    let activityLogsData = [];
+    if (fs.existsSync(path.join(tempDir, 'activityLogs.json'))) {
+      activityLogsData = JSON.parse(
+        fs.readFileSync(path.join(tempDir, 'activityLogs.json'), 'utf-8')
+      );
     }
 
-    // Validate it's a valid SQLite database
-    try {
-      const Database = require('better-sqlite3');
-      const testDb = new Database(tempDbPath, { readonly: true });
-      testDb.prepare('SELECT COUNT(*) FROM research_entries').get();
-      testDb.close();
-    } catch (dbError) {
-      throw new Error('Invalid database file: ' + dbError.message);
-    }
-
-    // Close current database connection
-    db.close();
-
-    // Backup current data (safety backup)
+    // Create backup of current assets
     const backupTimestamp = Date.now();
-    const currentDbPath = path.join(vaultDir, 'vault.db');
-    const currentDbBackup = path.join(vaultDir, `vault.db.backup-${backupTimestamp}`);
     const currentAssetsBackup = path.join(userDataPath, `assets-backup-${backupTimestamp}`);
-
-    if (fs.existsSync(currentDbPath)) {
-      fs.copyFileSync(currentDbPath, currentDbBackup);
-      console.log(`Current database backed up to: ${currentDbBackup}`);
-    }
 
     if (fs.existsSync(assetDir)) {
       fs.cpSync(assetDir, currentAssetsBackup, { recursive: true });
       console.log(`Current assets backed up to: ${currentAssetsBackup}`);
     }
 
-    // Replace database
-    fs.copyFileSync(tempDbPath, currentDbPath);
-    console.log('Database replaced successfully');
+    // Clear existing data
+    await User.deleteMany({});
+    await Tag.deleteMany({});
+    await Entry.deleteMany({});
+    await ActivityLog.deleteMany({});
+
+    // Import data
+    if (usersData.length > 0) {
+      await User.insertMany(usersData);
+    }
+    if (tagsData.length > 0) {
+      await Tag.insertMany(tagsData);
+    }
+    if (entriesData.length > 0) {
+      await Entry.insertMany(entriesData);
+    }
+    if (activityLogsData.length > 0) {
+      await ActivityLog.insertMany(activityLogsData);
+    }
 
     // Replace assets
     const tempAssetsDir = path.join(tempDir, 'assets');
     if (fs.existsSync(tempAssetsDir)) {
-      // Clear current assets
       if (fs.existsSync(assetDir)) {
         fs.rmSync(assetDir, { recursive: true, force: true });
       }
       fs.mkdirSync(assetDir, { recursive: true });
-
-      // Copy new assets
       fs.cpSync(tempAssetsDir, assetDir, { recursive: true });
       console.log('Assets replaced successfully');
     }
@@ -146,9 +158,9 @@ const importDatabase = async (zipPath) => {
 
     return {
       success: true,
-      message: 'Database imported successfully. Please restart the application.',
-      requiresRestart: true,
-      backupLocation: currentDbBackup
+      message: `Database imported successfully. Imported ${entriesData.length} entries, ${usersData.length} users, ${tagsData.length} tags.`,
+      requiresRestart: false,
+      backupLocation: currentAssetsBackup,
     };
   } catch (error) {
     console.error('Import error:', error);
@@ -172,7 +184,6 @@ const importDatabase = async (zipPath) => {
  */
 const createAutoBackup = async () => {
   try {
-    // Ensure backup directory exists
     if (!fs.existsSync(backupDir)) {
       fs.mkdirSync(backupDir, { recursive: true });
     }
@@ -185,7 +196,6 @@ const createAutoBackup = async () => {
 
     if (result.success) {
       console.log(`Auto-backup created: ${filename}`);
-      // Clean old backups
       await cleanOldBackups();
       return { success: true, filename, path: backupPath };
     }
@@ -207,16 +217,16 @@ const cleanOldBackups = async (keepCount = 10) => {
       return;
     }
 
-    const files = fs.readdirSync(backupDir)
-      .filter(f => f.startsWith('auto-backup-') && f.endsWith('.zip'))
-      .map(f => ({
+    const files = fs
+      .readdirSync(backupDir)
+      .filter((f) => f.startsWith('auto-backup-') && f.endsWith('.zip'))
+      .map((f) => ({
         name: f,
         path: path.join(backupDir, f),
-        time: fs.statSync(path.join(backupDir, f)).mtime.getTime()
+        time: fs.statSync(path.join(backupDir, f)).mtime.getTime(),
       }))
-      .sort((a, b) => b.time - a.time); // Newest first
+      .sort((a, b) => b.time - a.time);
 
-    // Delete old backups beyond keepCount
     for (let i = keepCount; i < files.length; i++) {
       fs.unlinkSync(files[i].path);
       console.log(`Deleted old backup: ${files[i].name}`);
@@ -236,26 +246,27 @@ const getBackupStats = () => {
       return { count: 0, totalSize: 0, backups: [] };
     }
 
-    const files = fs.readdirSync(backupDir)
-      .filter(f => f.endsWith('.zip'))
-      .map(f => {
+    const files = fs
+      .readdirSync(backupDir)
+      .filter((f) => f.endsWith('.zip'))
+      .map((f) => {
         const filePath = path.join(backupDir, f);
         const stats = fs.statSync(filePath);
         return {
           name: f,
           size: stats.size,
           date: stats.mtime,
-          isAuto: f.startsWith('auto-backup-')
+          isAuto: f.startsWith('auto-backup-'),
         };
       })
-      .sort((a, b) => b.date - a.date); // Newest first
+      .sort((a, b) => b.date - a.date);
 
     const totalSize = files.reduce((sum, f) => sum + f.size, 0);
 
     return {
       count: files.length,
       totalSize,
-      backups: files
+      backups: files,
     };
   } catch (error) {
     console.error('Error getting backup stats:', error);
@@ -272,7 +283,6 @@ const deleteBackup = (filename) => {
   try {
     const filePath = path.join(backupDir, filename);
 
-    // Security: ensure filename doesn't contain path traversal
     if (filename.includes('..') || filename.includes('/') || filename.includes('\\')) {
       return { success: false, message: 'Invalid filename' };
     }
@@ -297,5 +307,5 @@ module.exports = {
   cleanOldBackups,
   getBackupStats,
   deleteBackup,
-  backupDir
+  backupDir,
 };

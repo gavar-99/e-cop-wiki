@@ -1,97 +1,82 @@
 /**
- * Script to clear all documents and re-ingest seed data
+ * Script to clear all documents and re-ingest seed data (MongoDB version)
  * Usage: node scripts/clear-and-seed.js
  */
 
-// Enable test mode to use temp directory instead of production database
-// Comment this line to clear production database (USE WITH CAUTION!)
 process.env.TEST_MODE = 'true';
 
-const Database = require('better-sqlite3');
-const crypto = require('crypto');
-const fs = require('fs');
+const mongoose = require('mongoose');
 const path = require('path');
 const os = require('os');
 
-console.log('🗑️  Clear and Re-seed Script');
-console.log('============================\n');
+console.log('Clear and Re-seed Script (MongoDB)');
+console.log('===================================\n');
 
-// Determine database path
-let userDataPath;
-if (process.env.TEST_MODE === 'true') {
-    userDataPath = path.join(os.tmpdir(), 'ecop-wiki-test');
-    console.log('⚠️  Running in TEST MODE');
-    console.log(`📁 Using test database at: ${userDataPath}\n`);
-} else {
-    try {
-        const electron = require('electron');
-        if (electron.app) {
-            userDataPath = electron.app.getPath('userData');
-        }
-    } catch (e) {
-        console.error('❌ Error: Cannot determine production database path without Electron.');
-        console.error('   This script must be run in TEST_MODE when outside Electron.');
-        process.exit(1);
-    }
-    console.log('⚠️  PRODUCTION MODE - This will clear your REAL database!');
-    console.log(`📁 Using production database at: ${userDataPath}\n`);
-}
+// MongoDB connection URI
+const MONGO_URI = process.env.MONGO_URI || 'mongodb://127.0.0.1:27017/ecop-wiki';
 
-const vaultDir = path.join(userDataPath, 'vault');
-const dbPath = path.join(vaultDir, 'vault.db');
+console.log(`Connecting to MongoDB: ${MONGO_URI}\n`);
 
-if (!fs.existsSync(dbPath)) {
-    console.error(`❌ Database not found at: ${dbPath}`);
-    console.error('   Please run the application first to initialize the database.');
-    process.exit(1);
-}
+async function clearAndSeed() {
+  try {
+    await mongoose.connect(MONGO_URI);
+    console.log('Connected to MongoDB\n');
 
-console.log(`📊 Database found at: ${dbPath}`);
+    // Import models after connection
+    const { User, Tag, Entry, ActivityLog } = require('../main/db/models');
 
-try {
-    const db = new Database(dbPath);
+    // Get counts before clearing
+    const beforeEntries = await Entry.countDocuments();
+    const beforeTags = await Tag.countDocuments();
+    const beforeUsers = await User.countDocuments();
 
-    // Get count before clearing
-    const beforeCount = db.prepare('SELECT COUNT(*) as count FROM research_entries').get();
-    console.log(`\n🗑️  Clearing ${beforeCount.count} existing research entries...`);
+    console.log(`Clearing ${beforeEntries} entries, ${beforeTags} tags, ${beforeUsers} users...`);
 
-    // Clear all research entries (will cascade delete entry_tags)
-    const deleteResult = db.prepare('DELETE FROM research_entries').run();
-    console.log(`   ✅ Deleted ${deleteResult.changes} research entries`);
+    // Clear all collections
+    await Entry.deleteMany({});
+    console.log('   Deleted all entries');
 
-    // Clear all tags
-    const deleteTagsResult = db.prepare('DELETE FROM tags').run();
-    console.log(`   ✅ Deleted ${deleteTagsResult.changes} tags`);
+    await Tag.deleteMany({});
+    console.log('   Deleted all tags');
 
-    // Clear FTS index
-    db.prepare('DELETE FROM research_fts').run();
-    console.log('   ✅ Cleared full-text search index');
+    await User.deleteMany({});
+    console.log('   Deleted all users');
 
-    console.log('\n🌱 Re-seeding database with WW2 sample data...');
+    await ActivityLog.deleteMany({});
+    console.log('   Deleted all activity logs');
 
-    // Now import and re-initialize dbManager to trigger seed
+    console.log('\nRe-seeding database with sample data...\n');
+
+    // Import dbManager to trigger seed
     delete require.cache[require.resolve('../main/db/dbManager')];
     const dbManager = require('../main/db/dbManager');
-    dbManager.initDB();
+    await dbManager.initDB();
 
     // Verify seed
-    const afterCount = db.prepare('SELECT COUNT(*) as count FROM research_entries').get();
-    const tagCount = db.prepare('SELECT COUNT(*) as count FROM tags').get();
+    const afterEntries = await Entry.countDocuments();
+    const afterTags = await Tag.countDocuments();
+    const afterUsers = await User.countDocuments();
 
-    console.log('\n✅ Database cleared and re-seeded successfully!');
-    console.log('\n📊 Final Statistics:');
-    console.log(`   - Research entries: ${afterCount.count}`);
-    console.log(`   - Tags: ${tagCount.count}`);
-    console.log('\n📚 Seed data includes:');
-    console.log('   - 9 WW2 knowledge entries (Operation Overlord, D-Day, etc.)');
+    console.log('\nDatabase cleared and re-seeded successfully!');
+    console.log('\nFinal Statistics:');
+    console.log(`   - Research entries: ${afterEntries}`);
+    console.log(`   - Tags: ${afterTags}`);
+    console.log(`   - Users: ${afterUsers}`);
+    console.log('\nSeed data includes:');
+    console.log('   - 5 WW2 knowledge entries (Operation Overlord, D-Day, etc.)');
     console.log('   - Default user accounts:');
-    console.log('     • admin / admin123');
-    console.log('     • editor / editor123');
-    console.log('     • reader / reader123');
+    console.log('     admin / admin123');
+    console.log('     editor / editor123');
+    console.log('     reader / reader123');
 
-    db.close();
-
-} catch (error) {
-    console.error('\n❌ Error during clear and seed:', error);
+    await mongoose.disconnect();
+    console.log('\nDisconnected from MongoDB');
+    process.exit(0);
+  } catch (error) {
+    console.error('\nError during clear and seed:', error);
+    await mongoose.disconnect();
     process.exit(1);
+  }
 }
+
+clearAndSeed();

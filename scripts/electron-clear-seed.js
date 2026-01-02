@@ -1,5 +1,5 @@
 /**
- * Electron wrapper to run clear-and-seed script
+ * Electron wrapper to run clear-and-seed script (MongoDB version)
  * This file will be loaded by Electron's main process
  */
 
@@ -9,61 +9,67 @@ const { app } = require('electron');
 const USE_TEST_MODE = false; // Set to false for production database
 
 if (USE_TEST_MODE) {
-    process.env.TEST_MODE = 'true';
-    console.log('Running in TEST MODE');
+  process.env.TEST_MODE = 'true';
+  console.log('Running in TEST MODE');
 } else {
-    console.log('\n⚠️  Running in PRODUCTION MODE - will clear real database! ⚠️\n');
+  console.log('\nRunning in PRODUCTION MODE - will clear real database!\n');
 }
 
-app.whenReady().then(() => {
+app.whenReady().then(async () => {
+  try {
+    const { User, Tag, Entry, ActivityLog } = require('../main/db/models');
     const dbManager = require('../main/db/dbManager');
-    const { db, initDB } = dbManager;
 
-    try {
-        // Ensure database is initialized with all tables
-        console.log('Initializing database schema...');
-        initDB();
+    // Initialize database connection
+    console.log('Connecting to MongoDB...');
+    await dbManager.initDB();
 
-        console.log('\n🗑️  Clearing documents...\n');
+    console.log('\nClearing documents...\n');
 
-        // Get count before clearing
-        const beforeCount = db.prepare('SELECT COUNT(*) as count FROM research_entries').get();
-        console.log(`Found ${beforeCount.count} existing research entries`);
+    // Get count before clearing
+    const beforeEntries = await Entry.countDocuments();
+    const beforeTags = await Tag.countDocuments();
 
-        // Clear all research entries (cascades to entry_tags)
-        const deleteResult = db.prepare('DELETE FROM research_entries').run();
-        console.log(`✅ Deleted ${deleteResult.changes} research entries`);
+    console.log(`Found ${beforeEntries} existing research entries`);
+    console.log(`Found ${beforeTags} existing tags`);
 
-        // Clear all tags
-        const deleteTagsResult = db.prepare('DELETE FROM tags').run();
-        console.log(`✅ Deleted ${deleteTagsResult.changes} tags`);
+    // Clear all collections
+    await Entry.deleteMany({});
+    console.log('Deleted all entries');
 
-        // Clear FTS index
-        db.prepare('DELETE FROM research_fts').run();
-        console.log('✅ Cleared full-text search index');
+    await Tag.deleteMany({});
+    console.log('Deleted all tags');
 
-        console.log('\n🌱 Re-seeding database with WW2 sample data...\n');
+    await User.deleteMany({});
+    console.log('Deleted all users');
 
-        // Force re-initialization to trigger seed
-        delete require.cache[require.resolve('../main/db/dbManager')];
-        const freshDbManager = require('../main/db/dbManager');
-        freshDbManager.initDB();
+    await ActivityLog.deleteMany({});
+    console.log('Deleted all activity logs');
 
-        // Verify seed with fresh db reference
-        const afterCount = freshDbManager.db.prepare('SELECT COUNT(*) as count FROM research_entries').get();
-        const tagCount = freshDbManager.db.prepare('SELECT COUNT(*) as count FROM tags').get();
+    console.log('\nRe-seeding database with sample data...\n');
 
-        console.log('✅ Database cleared and re-seeded successfully!\n');
-        console.log('📊 Final Statistics:');
-        console.log(`   Research entries: ${afterCount.count}`);
-        console.log(`   Tags: ${tagCount.count}`);
-        console.log('\n📚 Seed data includes:');
-        console.log('   - 9 WW2 knowledge entries');
-        console.log('   - Default user accounts (admin/editor/reader)\n');
+    // Force re-initialization to trigger seed
+    delete require.cache[require.resolve('../main/db/dbManager')];
+    const freshDbManager = require('../main/db/dbManager');
+    await freshDbManager.initDB();
 
-        setTimeout(() => app.quit(), 100);
-    } catch (error) {
-        console.error('\n❌ Error:', error);
-        setTimeout(() => app.quit(), 100);
-    }
+    // Verify seed
+    const afterEntries = await Entry.countDocuments();
+    const afterTags = await Tag.countDocuments();
+    const afterUsers = await User.countDocuments();
+
+    console.log('Database cleared and re-seeded successfully!\n');
+    console.log('Final Statistics:');
+    console.log(`   Research entries: ${afterEntries}`);
+    console.log(`   Tags: ${afterTags}`);
+    console.log(`   Users: ${afterUsers}`);
+    console.log('\nSeed data includes:');
+    console.log('   - 5 WW2 knowledge entries');
+    console.log('   - Default user accounts (admin/editor/reader)\n');
+
+    setTimeout(() => app.quit(), 100);
+  } catch (error) {
+    console.error('\nError:', error);
+    setTimeout(() => app.quit(), 100);
+  }
 });

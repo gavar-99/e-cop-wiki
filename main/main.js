@@ -41,6 +41,8 @@ const {
 const ipfsSidecar = require('./ipfs/sidecar');
 const { publishToSwarm, connectToPeer, getPeerId, createPrivateSwarm } = require('./ipfs/ipfsHandler');
 const { askGeminiWithContext } = require('./api/gemini');
+const { exportDatabase, importDatabase, createAutoBackup, getBackupStats, deleteBackup } = require('./db/backupManager');
+const backupScheduler = require('./backupScheduler');
 
 // Security Session State
 let activeSession = null;
@@ -148,6 +150,9 @@ app.whenReady().then(async () => {
   }
 
   ipfsSidecar.start();
+
+  // Start backup scheduler
+  backupScheduler.startScheduler();
 
   // Handle the custom protocol
   protocol.handle('wiki-asset', (request) => {
@@ -532,9 +537,78 @@ ipcMain.handle('ask-gemini', async (event, { query, context }) => {
   return await askGeminiWithContext(query, context);
 });
 
+// Database Export/Import/Backup Handlers
+ipcMain.handle('export-database', async () => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+
+  const { filePath } = await dialog.showSaveDialog(mainWindow, {
+    title: 'Export Database',
+    defaultPath: `ecop-wiki-backup-${Date.now()}.zip`,
+    filters: [{ name: 'ZIP Archive', extensions: ['zip'] }]
+  });
+
+  if (!filePath) return { success: false, message: 'Export cancelled' };
+
+  return await exportDatabase(filePath);
+});
+
+ipcMain.handle('import-database', async () => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+
+  const { filePaths } = await dialog.showOpenDialog(mainWindow, {
+    title: 'Import Database',
+    filters: [{ name: 'ZIP Archive', extensions: ['zip'] }],
+    properties: ['openFile']
+  });
+
+  if (filePaths.length === 0) return { success: false, message: 'Import cancelled' };
+
+  return await importDatabase(filePaths[0]);
+});
+
+ipcMain.handle('backup-now', async () => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return await createAutoBackup();
+});
+
+ipcMain.handle('get-backup-stats', async () => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return getBackupStats();
+});
+
+ipcMain.handle('delete-backup', async (event, filename) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return deleteBackup(filename);
+});
+
+ipcMain.handle('update-backup-schedule', async (event, schedule) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return backupScheduler.updateSchedule(schedule);
+});
+
+ipcMain.handle('get-backup-schedule', async () => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return { success: true, schedule: backupScheduler.getSchedule() };
+});
+
 app.on('window-all-closed', async () => {
   try {
     ipfsSidecar.stop();
+    backupScheduler.stopScheduler();
     await disconnect();
   } catch (e) {
     console.error('Cleanup Error:', e);
