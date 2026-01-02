@@ -50,13 +50,16 @@ const App = () => {
     document.body.style.cursor = 'default';
   }, [resize]);
 
-  const startResizing = useCallback((e) => {
-    isResizing.current = true;
-    document.addEventListener('mousemove', resize);
-    document.addEventListener('mouseup', stopResizing);
-    document.body.style.cursor = 'col-resize';
-    e.preventDefault();
-  }, [resize, stopResizing]);
+  const startResizing = useCallback(
+    (e) => {
+      isResizing.current = true;
+      document.addEventListener('mousemove', resize);
+      document.addEventListener('mouseup', stopResizing);
+      document.body.style.cursor = 'col-resize';
+      e.preventDefault();
+    },
+    [resize, stopResizing]
+  );
 
   const loadEntries = async () => {
     const data = await window.wikiAPI.getEntries();
@@ -65,12 +68,12 @@ const App = () => {
 
   useEffect(() => {
     if (currentUser) {
-        loadEntries();
-        window.wikiAPI.verifyIntegrity().then((issues) => {
-            if (issues && issues.length > 0) {
-                setIntegrityIssues(issues);
-            }
-        });
+      loadEntries();
+      window.wikiAPI.verifyIntegrity().then((issues) => {
+        if (issues && issues.length > 0) {
+          setIntegrityIssues(issues);
+        }
+      });
     }
   }, [currentUser]);
 
@@ -112,20 +115,18 @@ const App = () => {
   }, [searchQuery]);
 
   const handleLogout = async () => {
-      await window.wikiAPI.logout();
-      setCurrentUser(null);
+    await window.wikiAPI.logout();
+    setCurrentUser(null);
   };
 
   const handleSearchKeyDown = (e) => {
     if (showSearchDropdown && searchSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedSearchIndex((prev) =>
-          prev < searchSuggestions.length - 1 ? prev + 1 : prev
-        );
+        setSelectedSearchIndex((prev) => (prev < searchSuggestions.length - 1 ? prev + 1 : prev));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedSearchIndex((prev) => prev > 0 ? prev - 1 : 0);
+        setSelectedSearchIndex((prev) => (prev > 0 ? prev - 1 : 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (searchSuggestions[selectedSearchIndex]) {
@@ -146,71 +147,69 @@ const App = () => {
   };
 
   const handleNavigate = async (titleOrQuery, skipHistory = false) => {
-      // First try exact title match
-      const exactMatch = entries.find(e => e.title.toLowerCase() === titleOrQuery.toLowerCase());
+    // First try exact title match
+    const exactMatch = entries.find((e) => e.title.toLowerCase() === titleOrQuery.toLowerCase());
 
-      if (exactMatch) {
-          setCurrentEntry(exactMatch);
-          setView('article');
+    if (exactMatch) {
+      setCurrentEntry(exactMatch);
+      setView('article');
 
-          // Add to history
-          if (!skipHistory) {
-              const newHistory = history.slice(0, historyIndex + 1);
-              newHistory.push({ type: 'article', entry: exactMatch });
-              setHistory(newHistory);
-              setHistoryIndex(newHistory.length - 1);
-          }
-      } else {
-          // Try FTS5 search
-          const searchResults = await window.wikiAPI.searchEntries(titleOrQuery);
-
-          if (searchResults.length > 0) {
-              // Update entries with search results
-              setEntries(searchResults);
-              setView('dashboard');
-          } else {
-              if (canEdit) {
-                  // If not found, switch to creation mode with this title
-                  setDraftTitle(titleOrQuery);
-                  setView('add');
-              } else {
-                  alert(`No entries found for "${titleOrQuery}".`);
-              }
-          }
+      // Add to history
+      if (!skipHistory) {
+        const newHistory = history.slice(0, historyIndex + 1);
+        newHistory.push({ type: 'article', entry: exactMatch });
+        setHistory(newHistory);
+        setHistoryIndex(newHistory.length - 1);
       }
+    } else {
+      // Try FTS5 search
+      const searchResults = await window.wikiAPI.searchEntries(titleOrQuery);
+
+      if (searchResults.length > 0) {
+        // Update entries with search results
+        setEntries(searchResults);
+        setView('dashboard');
+      } else {
+        if (canEdit) {
+          // If not found, switch to creation mode with this title
+          setDraftTitle(titleOrQuery);
+          setView('add');
+        } else {
+          alert(`No entries found for "${titleOrQuery}".`);
+        }
+      }
+    }
   };
 
   const goBack = () => {
-      if (historyIndex > 0) {
-          const prevIndex = historyIndex - 1;
-          const prevState = history[prevIndex];
+    if (historyIndex > 0) {
+      const prevIndex = historyIndex - 1;
+      const prevState = history[prevIndex];
 
-          if (prevState.type === 'article') {
-              setCurrentEntry(prevState.entry);
-              setView('article');
-              setHistoryIndex(prevIndex);
-          }
+      if (prevState.type === 'article') {
+        setCurrentEntry(prevState.entry);
+        setView('article');
+        setHistoryIndex(prevIndex);
       }
+    }
   };
 
   const goForward = () => {
-      if (historyIndex < history.length - 1) {
-          const nextIndex = historyIndex + 1;
-          const nextState = history[nextIndex];
+    if (historyIndex < history.length - 1) {
+      const nextIndex = historyIndex + 1;
+      const nextState = history[nextIndex];
 
-          if (nextState.type === 'article') {
-              setCurrentEntry(nextState.entry);
-              setView('article');
-              setHistoryIndex(nextIndex);
-          }
+      if (nextState.type === 'article') {
+        setCurrentEntry(nextState.entry);
+        setView('article');
+        setHistoryIndex(nextIndex);
       }
+    }
   };
 
   const handlePin = (entry) => {
     setPinnedEntries((prev) =>
-        prev.find((e) => e.id === entry.id)
-        ? prev.filter((e) => e.id !== entry.id)
-        : [...prev, entry]
+      prev.find((e) => e.id === entry.id) ? prev.filter((e) => e.id !== entry.id) : [...prev, entry]
     );
   };
 
@@ -237,29 +236,28 @@ const App = () => {
   };
 
   if (!currentUser) {
-      return (
-        <>
-            <TitleBar transparent={true} />
-            <Login onLogin={setCurrentUser} />
-        </>
-      );
+    return (
+      <>
+        <TitleBar transparent={true} />
+        <Login onLogin={setCurrentUser} />
+      </>
+    );
   }
 
   const canEdit = ['admin', 'editor'].includes(currentUser.role);
 
   return (
     <div style={{ display: 'flex', height: '100vh', overflow: 'hidden', flexDirection: 'column' }}>
-      <TitleBar 
-        transparent={false} 
+      <TitleBar
+        transparent={false}
         userRole={currentUser.role}
         onManageUsers={() => setShowSettings(true)}
         onExit={() => window.wikiAPI.close()}
       />
       {showSettings && currentUser.role === 'admin' && (
-          <Settings onClose={() => setShowSettings(false)} currentUser={currentUser} />
+        <Settings onClose={() => setShowSettings(false)} currentUser={currentUser} />
       )}
       <div style={{ height: '32px' }} /> {/* Spacer for TitleBar */}
-      
       {integrityIssues.length > 0 && (
         <div
           style={{
@@ -275,175 +273,207 @@ const App = () => {
         </div>
       )}
       <div style={{ display: 'flex', flex: 1, overflow: 'hidden' }}>
-        <main style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}>
+        <main
+          style={{ flex: 1, display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}
+        >
           {/* Navigation Bar */}
           <nav style={topNavStyle}>
-          <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
-            {/* Top Row: Logo, Nav Links, Search, User Status */}
-            <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', paddingBottom: '10px', borderBottom: '1px solid #e1e4e8' }}>
-              {/* Logo and Nav Links */}
-              <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
-                <span style={{
-                    fontFamily: 'Milker',
-                    fontSize: '2.5em',
-                    color: '#202122',
-                    letterSpacing: '1px',
-                    cursor: 'pointer',
-                    lineHeight: '1'
-                }} onClick={() => setView('dashboard')}>
-                  E-Cop Wiki
-                </span>
-
-                {/* Navigation Links */}
-                <div style={{display: 'flex', gap: '20px', alignItems: 'center'}}>
-                    <button onClick={() => setView('dashboard')} style={navLinkStyle(view === 'dashboard')}>
-                    Home
-                    </button>
-                    {canEdit && (
-                        <button onClick={() => setView('add')} style={navLinkStyle(view === 'add')}>
-                        Create
-                        </button>
-                    )}
-                </div>
-              </div>
-
-              {/* User Status */}
-              <div style={{
-                  fontSize: '0.85em',
-                  color: '#555',
-                  backgroundColor: '#f0f2f5',
-                  padding: '6px 12px',
-                  borderRadius: '20px',
-                  border: '1px solid #e1e4e8',
+            <div style={{ display: 'flex', flexDirection: 'column', width: '100%' }}>
+              {/* Top Row: Logo, Nav Links, Search, User Status */}
+              <div
+                style={{
                   display: 'flex',
                   alignItems: 'center',
-                  gap: '8px'
-              }}>
-                  <span style={{width: '8px', height: '8px', borderRadius: '50%', backgroundColor: '#4caf50', display: 'inline-block'}}></span>
+                  justifyContent: 'space-between',
+                  paddingBottom: '10px',
+                  borderBottom: '1px solid #e1e4e8',
+                }}
+              >
+                {/* Logo and Nav Links */}
+                <div style={{ display: 'flex', alignItems: 'center', gap: '40px' }}>
+                  <span
+                    style={{
+                      fontFamily: 'Milker',
+                      fontSize: '2.5em',
+                      color: '#202122',
+                      letterSpacing: '1px',
+                      cursor: 'pointer',
+                      lineHeight: '1',
+                    }}
+                    onClick={() => setView('dashboard')}
+                  >
+                    E-Cop Wiki
+                  </span>
+
+                  {/* Navigation Links */}
+                  <div style={{ display: 'flex', gap: '20px', alignItems: 'center' }}>
+                    <button
+                      onClick={() => setView('dashboard')}
+                      style={navLinkStyle(view === 'dashboard')}
+                    >
+                      Home
+                    </button>
+                    {canEdit && (
+                      <button onClick={() => setView('add')} style={navLinkStyle(view === 'add')}>
+                        Create
+                      </button>
+                    )}
+                  </div>
+                </div>
+
+                {/* User Status */}
+                <div
+                  style={{
+                    fontSize: '0.85em',
+                    color: '#555',
+                    backgroundColor: '#f0f2f5',
+                    padding: '6px 12px',
+                    borderRadius: '20px',
+                    border: '1px solid #e1e4e8',
+                    display: 'flex',
+                    alignItems: 'center',
+                    gap: '8px',
+                  }}
+                >
+                  <span
+                    style={{
+                      width: '8px',
+                      height: '8px',
+                      borderRadius: '50%',
+                      backgroundColor: '#4caf50',
+                      display: 'inline-block',
+                    }}
+                  ></span>
                   <strong>{currentUser.username}</strong>
                   {currentUser.username.toLowerCase() !== currentUser.role.toLowerCase() && (
                     <>
-                      <span style={{color: '#999'}}>·</span>
-                      <span style={{
+                      <span style={{ color: '#999' }}>·</span>
+                      <span
+                        style={{
                           backgroundColor: currentUser.role === 'admin' ? '#e3f2fd' : '#f3e5f5',
                           color: currentUser.role === 'admin' ? '#1565c0' : '#7b1fa2',
                           padding: '2px 8px',
                           borderRadius: '10px',
                           fontSize: '0.9em',
-                          fontWeight: '500'
-                      }}>
-                          {currentUser.role}
+                          fontWeight: '500',
+                        }}
+                      >
+                        {currentUser.role}
                       </span>
                     </>
                   )}
+                </div>
+              </div>
+
+              {/* Bottom Row: Back/Forward Navigation */}
+              <div style={{ display: 'flex', gap: '8px', alignItems: 'center', paddingTop: '8px' }}>
+                <button
+                  onClick={goBack}
+                  disabled={historyIndex <= 0}
+                  title="Go Back"
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer',
+                    fontSize: '1.1em',
+                    color: historyIndex <= 0 ? '#ccc' : '#36c',
+                    transition: 'color 0.15s',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) => historyIndex > 0 && (e.target.style.color = '#1565c0')}
+                  onMouseLeave={(e) => historyIndex > 0 && (e.target.style.color = '#36c')}
+                >
+                  <ChevronLeft size={18} />
+                </button>
+                <button
+                  onClick={goForward}
+                  disabled={historyIndex >= history.length - 1}
+                  title="Go Forward"
+                  style={{
+                    padding: '4px 8px',
+                    backgroundColor: 'transparent',
+                    border: 'none',
+                    cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer',
+                    fontSize: '1.1em',
+                    color: historyIndex >= history.length - 1 ? '#ccc' : '#36c',
+                    transition: 'color 0.15s',
+                    fontWeight: 'bold',
+                    display: 'flex',
+                    alignItems: 'center',
+                  }}
+                  onMouseEnter={(e) =>
+                    historyIndex < history.length - 1 && (e.target.style.color = '#1565c0')
+                  }
+                  onMouseLeave={(e) =>
+                    historyIndex < history.length - 1 && (e.target.style.color = '#36c')
+                  }
+                >
+                  <ChevronRight size={18} />
+                </button>
               </div>
             </div>
+          </nav>
 
-            {/* Bottom Row: Back/Forward Navigation */}
-            <div style={{display: 'flex', gap: '8px', alignItems: 'center', paddingTop: '8px'}}>
-                <button
-                    onClick={goBack}
-                    disabled={historyIndex <= 0}
-                    title="Go Back"
-                    style={{
-                        padding: '4px 8px',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        cursor: historyIndex <= 0 ? 'not-allowed' : 'pointer',
-                        fontSize: '1.1em',
-                        color: historyIndex <= 0 ? '#ccc' : '#36c',
-                        transition: 'color 0.15s',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center'
-                    }}
-                    onMouseEnter={(e) => historyIndex > 0 && (e.target.style.color = '#1565c0')}
-                    onMouseLeave={(e) => historyIndex > 0 && (e.target.style.color = '#36c')}
-                >
-                    <ChevronLeft size={18} />
-                </button>
-                <button
-                    onClick={goForward}
-                    disabled={historyIndex >= history.length - 1}
-                    title="Go Forward"
-                    style={{
-                        padding: '4px 8px',
-                        backgroundColor: 'transparent',
-                        border: 'none',
-                        cursor: historyIndex >= history.length - 1 ? 'not-allowed' : 'pointer',
-                        fontSize: '1.1em',
-                        color: historyIndex >= history.length - 1 ? '#ccc' : '#36c',
-                        transition: 'color 0.15s',
-                        fontWeight: 'bold',
-                        display: 'flex',
-                        alignItems: 'center'
-                    }}
-                    onMouseEnter={(e) => historyIndex < history.length - 1 && (e.target.style.color = '#1565c0')}
-                    onMouseLeave={(e) => historyIndex < history.length - 1 && (e.target.style.color = '#36c')}
-                >
-                    <ChevronRight size={18} />
-                </button>
-            </div>
-          </div>
-        </nav>
-
-        <div style={{ flex: 1, overflowY: 'auto' }}>
-          {view === 'dashboard' ? (
-            <Dashboard 
-                entries={entries} 
-                onNavigate={handleNavigate} 
-            />
-          ) : view === 'article' ? (
-             <ArticleView
+          <div style={{ flex: 1, overflowY: 'auto' }}>
+            {view === 'dashboard' ? (
+              <Dashboard entries={entries} onNavigate={handleNavigate} />
+            ) : view === 'article' ? (
+              <ArticleView
                 entry={currentEntry}
                 allEntries={entries} // Pass full list for backlink analysis
                 onNavigate={handleNavigate}
                 onPinToAI={handlePin}
-                isPinned={pinnedEntries.some(e => e.id === currentEntry?.id)}
+                isPinned={pinnedEntries.some((e) => e.id === currentEntry?.id)}
                 userRole={currentUser.role}
                 currentUsername={currentUser.username}
                 onEdit={handleEdit}
                 onDelete={handleDelete}
-             />
-          ) : (view === 'add' || view === 'edit') ? (
-            canEdit ? (
-              <EntryForm
-                mode={view === 'edit' ? 'edit' : 'create'}
-                entry={editingEntry}
-                userRole={currentUser.role}
-                initialTitle={draftTitle}
-                onComplete={() => {
-                  loadEntries();
-                  setView('dashboard');
-                  setDraftTitle('');
-                  setEditingEntry(null);
-                }}
               />
-            ) : <div>Access Denied</div>
-          ) : null}
-        </div>
-      </main>
+            ) : view === 'add' || view === 'edit' ? (
+              canEdit ? (
+                <EntryForm
+                  mode={view === 'edit' ? 'edit' : 'create'}
+                  entry={editingEntry}
+                  userRole={currentUser.role}
+                  initialTitle={draftTitle}
+                  onComplete={() => {
+                    loadEntries();
+                    setView('dashboard');
+                    setDraftTitle('');
+                    setEditingEntry(null);
+                  }}
+                />
+              ) : (
+                <div>Access Denied</div>
+              )
+            ) : null}
+          </div>
+        </main>
 
-      {/* Resizer Handle */}
-      <div
-        onMouseDown={startResizing}
-        style={{
+        {/* Resizer Handle */}
+        <div
+          onMouseDown={startResizing}
+          style={{
             width: '4px',
             cursor: 'col-resize',
             backgroundColor: '#e1e4e8',
             transition: 'background-color 0.2s',
-            zIndex: 10
-        }}
-        onMouseEnter={(e) => e.target.style.backgroundColor = '#36c'}
-        onMouseLeave={(e) => e.target.style.backgroundColor = '#e1e4e8'}
-      />
+            zIndex: 10,
+          }}
+          onMouseEnter={(e) => (e.target.style.backgroundColor = '#36c')}
+          onMouseLeave={(e) => (e.target.style.backgroundColor = '#e1e4e8')}
+        />
 
-      {/* AI Sidebar */}
-      <aside
-        style={{ width: `${sidebarWidth}px`, backgroundColor: '#f8f9fa' }}
-      >
-        <GeminiSidebar contextEntries={pinnedEntries} onClearContext={() => setPinnedEntries([])} />
-      </aside>
+        {/* AI Sidebar */}
+        <aside style={{ width: `${sidebarWidth}px`, backgroundColor: '#f8f9fa' }}>
+          <GeminiSidebar
+            contextEntries={pinnedEntries}
+            onClearContext={() => setPinnedEntries([])}
+          />
+        </aside>
       </div>
     </div>
   );
@@ -453,7 +483,7 @@ const topNavStyle = {
   padding: '15px 30px',
   backgroundColor: '#fff',
   boxShadow: '0 2px 4px rgba(0,0,0,0.02)',
-  zIndex: 10
+  zIndex: 10,
 };
 
 const navLinkStyle = (active) => ({
@@ -469,7 +499,7 @@ const navLinkStyle = (active) => ({
   display: 'flex',
   alignItems: 'center',
   letterSpacing: '0.5px',
-  fontWeight: '500'
+  fontWeight: '500',
 });
 
 const searchContainerStyle = {
@@ -483,11 +513,11 @@ const searchContainerStyle = {
 };
 
 const searchFieldStyle = {
-    border: 'none',
-    outline: 'none',
-    width: '500px',
-    backgroundColor: 'transparent',
-    fontSize: '0.95em'
+  border: 'none',
+  outline: 'none',
+  width: '500px',
+  backgroundColor: 'transparent',
+  fontSize: '0.95em',
 };
 
 const searchDropdownStyle = {
@@ -502,14 +532,14 @@ const searchDropdownStyle = {
   boxShadow: '0 4px 12px rgba(0, 0, 0, 0.15)',
   maxHeight: '400px',
   overflowY: 'auto',
-  zIndex: 1000
+  zIndex: 1000,
 };
 
 const searchSuggestionItemStyle = {
   padding: '10px 14px',
   cursor: 'pointer',
   borderBottom: '1px solid #f0f2f5',
-  transition: 'background-color 0.15s'
+  transition: 'background-color 0.15s',
 };
 
 export default App;

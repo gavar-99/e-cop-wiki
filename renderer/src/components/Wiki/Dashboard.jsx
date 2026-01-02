@@ -38,8 +38,12 @@ const Dashboard = ({ entries, onNavigate }) => {
   // Close dropdown when clicking outside
   useEffect(() => {
     const handleClickOutside = (event) => {
-      if (dropdownRef.current && !dropdownRef.current.contains(event.target) &&
-          searchInputRef.current && !searchInputRef.current.contains(event.target)) {
+      if (
+        dropdownRef.current &&
+        !dropdownRef.current.contains(event.target) &&
+        searchInputRef.current &&
+        !searchInputRef.current.contains(event.target)
+      ) {
         setShowSearchDropdown(false);
       }
     };
@@ -51,12 +55,10 @@ const Dashboard = ({ entries, onNavigate }) => {
     if (showSearchDropdown && searchSuggestions.length > 0) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedSearchIndex((prev) =>
-          prev < searchSuggestions.length - 1 ? prev + 1 : prev
-        );
+        setSelectedSearchIndex((prev) => (prev < searchSuggestions.length - 1 ? prev + 1 : prev));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedSearchIndex((prev) => prev > 0 ? prev - 1 : 0);
+        setSelectedSearchIndex((prev) => (prev > 0 ? prev - 1 : 0));
       } else if (e.key === 'Enter') {
         e.preventDefault();
         if (searchSuggestions[selectedSearchIndex]) {
@@ -68,8 +70,8 @@ const Dashboard = ({ entries, onNavigate }) => {
     } else if (e.key === 'Enter' && searchQuery.trim()) {
       e.preventDefault();
       // First check if there's an exact match
-      const exactMatch = entries.find(entry => 
-        entry.title.toLowerCase() === searchQuery.trim().toLowerCase()
+      const exactMatch = entries.find(
+        (entry) => entry.title.toLowerCase() === searchQuery.trim().toLowerCase()
       );
       if (exactMatch) {
         onNavigate(exactMatch.title);
@@ -96,8 +98,8 @@ const Dashboard = ({ entries, onNavigate }) => {
   };
   // Improved featured logic - prioritize entries with substantial content
   const featured = useMemo(() => {
-    const candidates = entries.filter(e => e.content && e.content.length > 500);
-    return candidates.length > 0 ? candidates[0] : (entries.length > 0 ? entries[0] : null);
+    const candidates = entries.filter((e) => e.content && e.content.length > 500);
+    return candidates.length > 0 ? candidates[0] : entries.length > 0 ? entries[0] : null;
   }, [entries]);
 
   // Recent entries - increased from 3 to 5
@@ -114,7 +116,7 @@ const Dashboard = ({ entries, onNavigate }) => {
     // Extract dates from content (e.g., "June 6", "6 June", "June 6, 1944")
     const datePattern = new RegExp(`(${month}\\s+${day}|${day}\\s+${month})`, 'i');
 
-    const matches = entries.filter(e => e.content && datePattern.test(e.content));
+    const matches = entries.filter((e) => e.content && datePattern.test(e.content));
 
     if (matches.length > 0) return matches.slice(0, 3);
 
@@ -133,7 +135,6 @@ const Dashboard = ({ entries, onNavigate }) => {
 
   return (
     <div style={{ padding: '30px 40px', maxWidth: '1400px', margin: '0 auto' }}>
-
       {/* Main Search Bar */}
       <div style={mainSearchContainerStyle}>
         <div style={searchWrapperStyle} ref={dropdownRef}>
@@ -145,7 +146,11 @@ const Dashboard = ({ entries, onNavigate }) => {
             value={searchQuery}
             onChange={(e) => setSearchQuery(e.target.value)}
             onKeyDown={handleSearchKeyDown}
-            onFocus={() => searchQuery.trim().length >= 2 && searchSuggestions.length > 0 && setShowSearchDropdown(true)}
+            onFocus={() =>
+              searchQuery.trim().length >= 2 &&
+              searchSuggestions.length > 0 &&
+              setShowSearchDropdown(true)
+            }
             style={mainSearchInputStyle}
           />
           {/* Search Results Dropdown */}
@@ -157,15 +162,29 @@ const Dashboard = ({ entries, onNavigate }) => {
                   onClick={() => handleSelectSuggestion(suggestion)}
                   style={{
                     ...searchResultItemStyle,
-                    backgroundColor: index === selectedSearchIndex ? '#f0f6ff' : '#fff'
+                    backgroundColor: index === selectedSearchIndex ? '#f0f6ff' : '#fff',
                   }}
                   onMouseEnter={() => setSelectedSearchIndex(index)}
                 >
-                  <div style={{ fontWeight: '600', color: '#0645ad', marginBottom: '4px', fontSize: '1.05em' }}>
+                  <div
+                    style={{
+                      fontWeight: '600',
+                      color: '#0645ad',
+                      marginBottom: '4px',
+                      fontSize: '1.05em',
+                    }}
+                  >
                     {suggestion.title}
                   </div>
                   {suggestion.snippet && (
-                    <div style={{ fontSize: '0.9em', color: '#54595d', marginBottom: '6px', lineHeight: '1.4' }}>
+                    <div
+                      style={{
+                        fontSize: '0.9em',
+                        color: '#54595d',
+                        marginBottom: '6px',
+                        lineHeight: '1.4',
+                      }}
+                    >
                       {suggestion.snippet.substring(0, 120)}...
                     </div>
                   )}
@@ -189,33 +208,26 @@ const Dashboard = ({ entries, onNavigate }) => {
       {/* Highlights Section - Full Width */}
       {featured && (
         <section style={highlightsSectionStyle}>
-          <h2 style={highlightsTitleStyle}>
-            Highlights
-          </h2>
+          <h2 style={highlightsTitleStyle}>Highlights</h2>
           <div style={featuredCardStyle}>
-            <h1
-              style={featuredTitleStyle}
-              onClick={() => onNavigate(featured.title)}
-            >
+            <h1 style={featuredTitleStyle} onClick={() => onNavigate(featured.title)}>
               {featured.title}
             </h1>
             {featured.tags && featured.tags.length > 0 && (
               <div style={tagContainerStyle}>
-                {featured.tags.map(tag => (
+                {featured.tags.map((tag) => (
                   <span key={tag} style={tagBadgeStyle}>
                     <Tag size={12} style={{ marginRight: '4px' }} /> {tag}
                   </span>
                 ))}
               </div>
             )}
-            <p style={featuredExcerptStyle}>
-              {getFirstParagraph(featured.content)}
-            </p>
+            <p style={featuredExcerptStyle}>{getFirstParagraph(featured.content)}</p>
             <button
               onClick={() => onNavigate(featured.title)}
               style={readMoreButtonStyle}
-              onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-              onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+              onMouseEnter={(e) => (e.target.style.textDecoration = 'underline')}
+              onMouseLeave={(e) => (e.target.style.textDecoration = 'none')}
             >
               Read Full Briefing →
             </button>
@@ -225,38 +237,43 @@ const Dashboard = ({ entries, onNavigate }) => {
 
       {/* Two-Column Grid */}
       <div style={gridContainerStyle}>
-
         {/* Latest Section */}
         <section style={sectionCardStyle}>
           <h3 style={sectionHeaderStyle}>
             <Clock size={18} style={{ marginRight: '8px' }} /> Latest
           </h3>
           <ul style={listStyle}>
-            {recent.map(e => (
+            {recent.map((e) => (
               <li key={e.id} style={listItemStyle}>
                 <a
                   href="#"
-                  onClick={(evt) => { evt.preventDefault(); onNavigate(e.title); }}
+                  onClick={(evt) => {
+                    evt.preventDefault();
+                    onNavigate(e.title);
+                  }}
                   style={linkStyle}
-                  onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                  onMouseEnter={(e) => (e.target.style.textDecoration = 'underline')}
+                  onMouseLeave={(e) => (e.target.style.textDecoration = 'none')}
                 >
                   {e.title}
                 </a>
                 <div style={metaStyle}>
-                  {e.timestamp && new Date(e.timestamp).toLocaleDateString('en-US', {
-                    month: 'short',
-                    day: 'numeric',
-                    year: 'numeric'
-                  })}
+                  {e.timestamp &&
+                    new Date(e.timestamp).toLocaleDateString('en-US', {
+                      month: 'short',
+                      day: 'numeric',
+                      year: 'numeric',
+                    })}
                 </div>
                 <div style={excerptStyle}>
                   {e.content ? e.content.substring(0, 120) + '...' : ''}
                 </div>
                 {e.tags && e.tags.length > 0 && (
                   <div style={tagContainerSmallStyle}>
-                    {e.tags.slice(0, 3).map(tag => (
-                      <span key={tag} style={tagBadgeSmallStyle}>{tag}</span>
+                    {e.tags.slice(0, 3).map((tag) => (
+                      <span key={tag} style={tagBadgeSmallStyle}>
+                        {tag}
+                      </span>
                     ))}
                   </div>
                 )}
@@ -274,14 +291,17 @@ const Dashboard = ({ entries, onNavigate }) => {
             {new Date().toLocaleDateString('en-US', { month: 'long', day: 'numeric' })}
           </p>
           <ul style={listStyle}>
-            {onThisDay.map(e => (
+            {onThisDay.map((e) => (
               <li key={e.id} style={listItemOnThisDayStyle}>
                 <a
                   href="#"
-                  onClick={(evt) => { evt.preventDefault(); onNavigate(e.title); }}
+                  onClick={(evt) => {
+                    evt.preventDefault();
+                    onNavigate(e.title);
+                  }}
                   style={linkStyle}
-                  onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
-                  onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                  onMouseEnter={(e) => (e.target.style.textDecoration = 'underline')}
+                  onMouseLeave={(e) => (e.target.style.textDecoration = 'none')}
                 >
                   {e.title}
                 </a>
@@ -292,7 +312,6 @@ const Dashboard = ({ entries, onNavigate }) => {
             ))}
           </ul>
         </section>
-
       </div>
     </div>
   );
@@ -305,7 +324,7 @@ const highlightsSectionStyle = {
   backgroundColor: '#f8f9fa',
   border: '1px solid #e1e4e8',
   borderRadius: '4px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
 };
 
 const highlightsTitleStyle = {
@@ -317,13 +336,13 @@ const highlightsTitleStyle = {
   marginBottom: '20px',
   textTransform: 'uppercase',
   fontWeight: '600',
-  letterSpacing: '0.5px'
+  letterSpacing: '0.5px',
 };
 
 const featuredCardStyle = {
   backgroundColor: '#fff',
   padding: '20px',
-  borderRadius: '4px'
+  borderRadius: '4px',
 };
 
 const featuredTitleStyle = {
@@ -332,14 +351,14 @@ const featuredTitleStyle = {
   margin: '0 0 10px 0',
   cursor: 'pointer',
   color: '#000',
-  transition: 'color 0.2s'
+  transition: 'color 0.2s',
 };
 
 const tagContainerStyle = {
   display: 'flex',
   flexWrap: 'wrap',
   gap: '8px',
-  marginBottom: '15px'
+  marginBottom: '15px',
 };
 
 const tagBadgeStyle = {
@@ -350,7 +369,7 @@ const tagBadgeStyle = {
   padding: '4px 10px',
   borderRadius: '12px',
   fontSize: '0.85em',
-  fontWeight: '500'
+  fontWeight: '500',
 };
 
 const featuredExcerptStyle = {
@@ -359,7 +378,7 @@ const featuredExcerptStyle = {
   color: '#202122',
   userSelect: 'text',
   cursor: 'text',
-  marginBottom: '15px'
+  marginBottom: '15px',
 };
 
 const readMoreButtonStyle = {
@@ -370,14 +389,14 @@ const readMoreButtonStyle = {
   fontSize: '0.95em',
   fontWeight: 'bold',
   padding: 0,
-  transition: 'text-decoration 0.2s'
+  transition: 'text-decoration 0.2s',
 };
 
 const gridContainerStyle = {
   display: 'grid',
   gridTemplateColumns: 'repeat(auto-fit, minmax(450px, 1fr))',
   gap: '30px',
-  marginTop: '30px'
+  marginTop: '30px',
 };
 
 const sectionCardStyle = {
@@ -386,7 +405,7 @@ const sectionCardStyle = {
   backgroundColor: '#fff',
   borderRadius: '4px',
   minHeight: '400px',
-  boxShadow: '0 1px 3px rgba(0,0,0,0.05)'
+  boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
 };
 
 const sectionHeaderStyle = {
@@ -398,25 +417,25 @@ const sectionHeaderStyle = {
   marginBottom: '20px',
   fontWeight: '600',
   display: 'flex',
-  alignItems: 'center'
+  alignItems: 'center',
 };
 
 const listStyle = {
   listStyle: 'none',
   padding: 0,
-  margin: 0
+  margin: 0,
 };
 
 const listItemStyle = {
   marginBottom: '20px',
   paddingBottom: '20px',
-  borderBottom: '1px solid #eaecf0'
+  borderBottom: '1px solid #eaecf0',
 };
 
 const listItemOnThisDayStyle = {
   marginBottom: '20px',
   paddingBottom: '15px',
-  borderBottom: '1px solid #eaecf0'
+  borderBottom: '1px solid #eaecf0',
 };
 
 const linkStyle = {
@@ -426,14 +445,14 @@ const linkStyle = {
   textDecoration: 'none',
   fontFamily: "'Linux Libertine', Georgia, serif",
   cursor: 'pointer',
-  transition: 'text-decoration 0.2s'
+  transition: 'text-decoration 0.2s',
 };
 
 const metaStyle = {
   fontSize: '0.85em',
   color: '#72777d',
   marginTop: '4px',
-  marginBottom: '6px'
+  marginBottom: '6px',
 };
 
 const excerptStyle = {
@@ -441,14 +460,14 @@ const excerptStyle = {
   color: '#54595d',
   marginTop: '6px',
   lineHeight: '1.4',
-  userSelect: 'text'
+  userSelect: 'text',
 };
 
 const tagContainerSmallStyle = {
   display: 'flex',
   flexWrap: 'wrap',
   gap: '6px',
-  marginTop: '8px'
+  marginTop: '8px',
 };
 
 const tagBadgeSmallStyle = {
@@ -457,7 +476,7 @@ const tagBadgeSmallStyle = {
   padding: '2px 8px',
   borderRadius: '10px',
   fontSize: '0.75em',
-  fontWeight: '500'
+  fontWeight: '500',
 };
 
 const onThisDayDateStyle = {
@@ -466,14 +485,14 @@ const onThisDayDateStyle = {
   fontWeight: '600',
   marginBottom: '15px',
   paddingBottom: '10px',
-  borderBottom: '1px solid #eaecf0'
+  borderBottom: '1px solid #eaecf0',
 };
 
 // Main Search Bar Styles
 const mainSearchContainerStyle = {
   display: 'flex',
   justifyContent: 'center',
-  marginBottom: '40px'
+  marginBottom: '40px',
 };
 
 const searchWrapperStyle = {
@@ -487,7 +506,7 @@ const searchWrapperStyle = {
   padding: '12px 20px',
   backgroundColor: '#fff',
   boxShadow: '0 2px 8px rgba(0,0,0,0.08)',
-  transition: 'border-color 0.2s, box-shadow 0.2s'
+  transition: 'border-color 0.2s, box-shadow 0.2s',
 };
 
 const mainSearchInputStyle = {
@@ -496,7 +515,7 @@ const mainSearchInputStyle = {
   outline: 'none',
   fontSize: '1.05em',
   backgroundColor: 'transparent',
-  color: '#202122'
+  color: '#202122',
 };
 
 const mainSearchDropdownStyle = {
@@ -510,14 +529,14 @@ const mainSearchDropdownStyle = {
   boxShadow: '0 8px 24px rgba(0,0,0,0.15)',
   maxHeight: '450px',
   overflowY: 'auto',
-  zIndex: 1000
+  zIndex: 1000,
 };
 
 const searchResultItemStyle = {
   padding: '14px 18px',
   cursor: 'pointer',
   borderBottom: '1px solid #f0f2f5',
-  transition: 'background-color 0.15s'
+  transition: 'background-color 0.15s',
 };
 
 const searchTagStyle = {
@@ -527,7 +546,7 @@ const searchTagStyle = {
   padding: '3px 8px',
   backgroundColor: '#e3f2fd',
   color: '#1565c0',
-  borderRadius: '12px'
+  borderRadius: '12px',
 };
 
 export default Dashboard;

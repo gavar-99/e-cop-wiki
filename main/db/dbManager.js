@@ -66,29 +66,34 @@ const seedResearch = async () => {
     const samples = [
       {
         title: 'Operation Overlord',
-        content: 'Operation Overlord was the codename for the [[Battle of Normandy]], the Allied operation that launched the successful invasion of German-occupied Western Europe during World War II. The operation commenced on 6 June 1944 with the [[D-Day]] landings.',
-        tags: ['WW2', 'Military Operation', 'Allied Forces', '1944']
+        content:
+          'Operation Overlord was the codename for the [[Battle of Normandy]], the Allied operation that launched the successful invasion of German-occupied Western Europe during World War II. The operation commenced on 6 June 1944 with the [[D-Day]] landings.',
+        tags: ['WW2', 'Military Operation', 'Allied Forces', '1944'],
       },
       {
         title: 'Battle of Normandy',
-        content: 'The Battle of Normandy lasted from June 1944 to August 1944, resulting in the Allied liberation of Western Europe from Nazi Germany\'s control.',
-        tags: ['WW2', 'France', '1944', 'Allied Victory']
+        content:
+          "The Battle of Normandy lasted from June 1944 to August 1944, resulting in the Allied liberation of Western Europe from Nazi Germany's control.",
+        tags: ['WW2', 'France', '1944', 'Allied Victory'],
       },
       {
         title: 'D-Day',
-        content: 'D-Day (June 6, 1944) marked the start of [[Operation Overlord]]. More than 156,000 American, British, and Canadian troops stormed 50 miles of Normandy\'s fiercely defended beaches.',
-        tags: ['WW2', '1944', 'Normandy', 'Invasion']
+        content:
+          "D-Day (June 6, 1944) marked the start of [[Operation Overlord]]. More than 156,000 American, British, and Canadian troops stormed 50 miles of Normandy's fiercely defended beaches.",
+        tags: ['WW2', '1944', 'Normandy', 'Invasion'],
       },
       {
         title: 'Dwight D. Eisenhower',
-        content: 'General Dwight David "Ike" Eisenhower was the Supreme Commander of the Allied Expeditionary Force in Europe.',
-        tags: ['WW2', 'Allied Commander', 'US', 'Biography']
+        content:
+          'General Dwight David "Ike" Eisenhower was the Supreme Commander of the Allied Expeditionary Force in Europe.',
+        tags: ['WW2', 'Allied Commander', 'US', 'Biography'],
       },
       {
         title: 'Erwin Rommel',
-        content: 'Erwin Rommel, popularly known as the Desert Fox, was a German field marshal of World War II.',
-        tags: ['WW2', 'German Commander', 'Biography', 'Atlantic Wall']
-      }
+        content:
+          'Erwin Rommel, popularly known as the Desert Fox, was a German field marshal of World War II.',
+        tags: ['WW2', 'German Commander', 'Biography', 'Atlantic Wall'],
+      },
     ];
 
     for (const sample of samples) {
@@ -111,7 +116,7 @@ const seedResearch = async () => {
         content: sample.content,
         tags: tagIds,
         sha256Hash: masterHash,
-        authorUsername: 'admin'
+        authorUsername: 'admin',
       });
     }
 
@@ -152,12 +157,12 @@ const verifyUser = async (username, password) => {
 const getAllUsers = async () => {
   try {
     const users = await User.find({}, 'username role active createdAt').sort({ createdAt: -1 });
-    return users.map(u => ({
+    return users.map((u) => ({
       id: u._id.toString(),
       username: u.username,
       role: u.role,
       active: u.active ? 1 : 0,
-      created_at: u.createdAt
+      created_at: u.createdAt,
     }));
   } catch (error) {
     console.error('Error getting users:', error);
@@ -251,10 +256,10 @@ const getEntryTags = async (entryId) => {
     const entry = await Entry.findById(entryId).populate('tags', 'name');
     if (!entry) return [];
 
-    return entry.tags.map(t => ({
+    return entry.tags.map((t) => ({
       id: t._id.toString(),
       name: t.name,
-      tag_name: t.name // For compatibility
+      tag_name: t.name, // For compatibility
     }));
   } catch (error) {
     console.error('Error getting entry tags:', error);
@@ -270,17 +275,17 @@ const getAllTags = async () => {
           from: 'entries',
           localField: '_id',
           foreignField: 'tags',
-          as: 'entries'
-        }
+          as: 'entries',
+        },
       },
       {
         $project: {
           id: '$_id',
           name: 1,
-          count: { $size: '$entries' }
-        }
+          count: { $size: '$entries' },
+        },
       },
-      { $sort: { count: -1, name: 1 } }
+      { $sort: { count: -1, name: 1 } },
     ]);
 
     return tags;
@@ -297,7 +302,7 @@ const getEntries = async () => {
       .populate('tags', 'name')
       .sort({ createdAt: -1 });
 
-    return entries.map(e => formatEntry(e));
+    return entries.map((e) => formatEntry(e));
   } catch (error) {
     console.error('Error getting entries:', error);
     return [];
@@ -326,10 +331,17 @@ const formatEntry = (entry) => ({
   updated_at: entry.updatedAt,
   deleted_at: entry.deletedAt,
   deleted_by: entry.deletedBy,
-  tags: entry.tags?.map(t => t.name) || []
+  tags: entry.tags?.map((t) => t.name) || [],
 });
 
-const createEntry = async ({ title, content, tags = [], infobox = [], assets = [], authorUsername }) => {
+const createEntry = async ({
+  title,
+  content,
+  tags = [],
+  infobox = [],
+  assets = [],
+  authorUsername,
+}) => {
   try {
     // Get or create tags
     const tagIds = [];
@@ -341,12 +353,25 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
     // Calculate hash
     const sortedTags = tags.slice().sort();
     const tagsString = sortedTags.join(',');
-    const assetsHash = assets.length > 0
-      ? crypto.createHash('sha256').update(assets.map(a => a.hash).join('|')).digest('hex')
-      : 'no-assets';
-    const infoboxHash = infobox.length > 0
-      ? crypto.createHash('sha256').update(infobox.map(f => `${f.key}:${f.value}`).sort().join('|')).digest('hex')
-      : 'no-infobox';
+    const assetsHash =
+      assets.length > 0
+        ? crypto
+            .createHash('sha256')
+            .update(assets.map((a) => a.hash).join('|'))
+            .digest('hex')
+        : 'no-assets';
+    const infoboxHash =
+      infobox.length > 0
+        ? crypto
+            .createHash('sha256')
+            .update(
+              infobox
+                .map((f) => `${f.key}:${f.value}`)
+                .sort()
+                .join('|')
+            )
+            .digest('hex')
+        : 'no-infobox';
 
     const masterHash = crypto
       .createHash('sha256')
@@ -363,13 +388,13 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
         assetPath: a.fileName,
         sha256Hash: a.hash,
         caption: '',
-        displayOrder: idx
+        displayOrder: idx,
       })),
       infobox: infobox.map((f, idx) => ({
         fieldKey: f.key,
         fieldValue: f.value,
-        displayOrder: idx
-      }))
+        displayOrder: idx,
+      })),
     });
 
     return { success: true, entryId: entry._id.toString() };
@@ -379,7 +404,14 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
   }
 };
 
-const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], removedAssetIds = [] }) => {
+const updateEntry = async ({
+  entryId,
+  title,
+  content,
+  tags = [],
+  infobox = [],
+  removedAssetIds = [],
+}) => {
   try {
     const entry = await Entry.findById(entryId);
     if (!entry) return { success: false, message: 'Entry not found' };
@@ -393,7 +425,7 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
 
     // Remove specified assets
     if (removedAssetIds.length > 0) {
-      entry.assets = entry.assets.filter(a => !removedAssetIds.includes(a._id.toString()));
+      entry.assets = entry.assets.filter((a) => !removedAssetIds.includes(a._id.toString()));
     }
 
     // Update fields
@@ -403,19 +435,32 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
     entry.infobox = infobox.map((f, idx) => ({
       fieldKey: f.key,
       fieldValue: f.value,
-      displayOrder: f.displayOrder || idx
+      displayOrder: f.displayOrder || idx,
     }));
     entry.updatedAt = new Date();
 
     // Recalculate hash
     const sortedTags = tags.slice().sort();
     const tagsString = sortedTags.join(',');
-    const assetsHash = entry.assets.length > 0
-      ? crypto.createHash('sha256').update(entry.assets.map(a => a.sha256Hash).join('|')).digest('hex')
-      : 'no-assets';
-    const infoboxHash = entry.infobox.length > 0
-      ? crypto.createHash('sha256').update(entry.infobox.map(f => `${f.fieldKey}:${f.fieldValue}`).sort().join('|')).digest('hex')
-      : 'no-infobox';
+    const assetsHash =
+      entry.assets.length > 0
+        ? crypto
+            .createHash('sha256')
+            .update(entry.assets.map((a) => a.sha256Hash).join('|'))
+            .digest('hex')
+        : 'no-assets';
+    const infoboxHash =
+      entry.infobox.length > 0
+        ? crypto
+            .createHash('sha256')
+            .update(
+              entry.infobox
+                .map((f) => `${f.fieldKey}:${f.fieldValue}`)
+                .sort()
+                .join('|')
+            )
+            .digest('hex')
+        : 'no-infobox';
 
     entry.sha256Hash = crypto
       .createHash('sha256')
@@ -432,10 +477,7 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
 
 const deleteEntry = async (entryId, deletedBy) => {
   try {
-    await Entry.updateOne(
-      { _id: entryId },
-      { deletedAt: new Date(), deletedBy }
-    );
+    await Entry.updateOne({ _id: entryId }, { deletedAt: new Date(), deletedBy });
     return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
@@ -444,10 +486,7 @@ const deleteEntry = async (entryId, deletedBy) => {
 
 const restoreEntry = async (entryId) => {
   try {
-    await Entry.updateOne(
-      { _id: entryId },
-      { deletedAt: null, deletedBy: null }
-    );
+    await Entry.updateOne({ _id: entryId }, { deletedAt: null, deletedBy: null });
     return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
@@ -466,7 +505,7 @@ const addEntryAssets = async (entryId, assets) => {
         assetPath: assets[i].fileName,
         sha256Hash: assets[i].hash,
         caption: '',
-        displayOrder: startOrder + i
+        displayOrder: startOrder + i,
       });
     }
 
@@ -485,12 +524,12 @@ const getEntryAssets = async (entryId) => {
     const entry = await Entry.findById(entryId);
     if (!entry) return [];
 
-    return entry.assets.map(a => ({
+    return entry.assets.map((a) => ({
       id: a._id.toString(),
       asset_path: a.assetPath,
       sha256_hash: a.sha256Hash,
       caption: a.caption,
-      display_order: a.displayOrder
+      display_order: a.displayOrder,
     }));
   } catch (error) {
     console.error('Error getting entry assets:', error);
@@ -500,10 +539,7 @@ const getEntryAssets = async (entryId) => {
 
 const updateAssetCaption = async (assetId, caption) => {
   try {
-    await Entry.updateOne(
-      { 'assets._id': assetId },
-      { $set: { 'assets.$.caption': caption } }
-    );
+    await Entry.updateOne({ 'assets._id': assetId }, { $set: { 'assets.$.caption': caption } });
     return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
@@ -516,10 +552,10 @@ const getEntryInfobox = async (entryId) => {
     const entry = await Entry.findById(entryId);
     if (!entry) return [];
 
-    return entry.infobox.map(f => ({
+    return entry.infobox.map((f) => ({
       field_key: f.fieldKey,
       field_value: f.fieldValue,
-      display_order: f.displayOrder
+      display_order: f.displayOrder,
     }));
   } catch (error) {
     console.error('Error getting entry infobox:', error);
@@ -537,16 +573,13 @@ const searchEntries = async (query) => {
 
     const entries = await Entry.find({
       deletedAt: null,
-      $or: [
-        { title: regex },
-        { content: regex }
-      ]
+      $or: [{ title: regex }, { content: regex }],
     })
       .populate('tags', 'name')
       .sort({ createdAt: -1 })
       .limit(50);
 
-    return entries.map(e => formatEntry(e));
+    return entries.map((e) => formatEntry(e));
   } catch (error) {
     console.error('Search error:', error);
     return [];
@@ -562,20 +595,17 @@ const searchAutocomplete = async (query) => {
 
     const entries = await Entry.find({
       deletedAt: null,
-      $or: [
-        { title: regex },
-        { content: regex }
-      ]
+      $or: [{ title: regex }, { content: regex }],
     })
       .populate('tags', 'name')
       .sort({ createdAt: -1 })
       .limit(8);
 
-    return entries.map(e => ({
+    return entries.map((e) => ({
       id: e._id.toString(),
       title: e.title,
       snippet: e.content.substring(0, 100),
-      tags: e.tags?.map(t => t.name) || []
+      tags: e.tags?.map((t) => t.name) || [],
     }));
   } catch (error) {
     console.error('Autocomplete error:', error);
@@ -586,16 +616,29 @@ const searchAutocomplete = async (query) => {
 // Hash Calculation
 const recalculateEntryHash = async (entry) => {
   const tags = await Tag.find({ _id: { $in: entry.tags } });
-  const sortedTags = tags.map(t => t.name).sort();
+  const sortedTags = tags.map((t) => t.name).sort();
   const tagsString = sortedTags.join(',');
 
-  const assetsHash = entry.assets.length > 0
-    ? crypto.createHash('sha256').update(entry.assets.map(a => a.sha256Hash).join('|')).digest('hex')
-    : 'no-assets';
+  const assetsHash =
+    entry.assets.length > 0
+      ? crypto
+          .createHash('sha256')
+          .update(entry.assets.map((a) => a.sha256Hash).join('|'))
+          .digest('hex')
+      : 'no-assets';
 
-  const infoboxHash = entry.infobox.length > 0
-    ? crypto.createHash('sha256').update(entry.infobox.map(f => `${f.fieldKey}:${f.fieldValue}`).sort().join('|')).digest('hex')
-    : 'no-infobox';
+  const infoboxHash =
+    entry.infobox.length > 0
+      ? crypto
+          .createHash('sha256')
+          .update(
+            entry.infobox
+              .map((f) => `${f.fieldKey}:${f.fieldValue}`)
+              .sort()
+              .join('|')
+          )
+          .digest('hex')
+      : 'no-infobox';
 
   entry.sha256Hash = crypto
     .createHash('sha256')
@@ -630,16 +673,29 @@ const verifyIntegrity = async () => {
       }
 
       // Calculate expected hash
-      const sortedTags = entry.tags.map(t => t.name).sort();
+      const sortedTags = entry.tags.map((t) => t.name).sort();
       const tagsString = sortedTags.join(',');
 
-      const assetsHash = entry.assets.length > 0
-        ? crypto.createHash('sha256').update(entry.assets.map(a => a.sha256Hash).join('|')).digest('hex')
-        : 'no-assets';
+      const assetsHash =
+        entry.assets.length > 0
+          ? crypto
+              .createHash('sha256')
+              .update(entry.assets.map((a) => a.sha256Hash).join('|'))
+              .digest('hex')
+          : 'no-assets';
 
-      const infoboxHash = entry.infobox.length > 0
-        ? crypto.createHash('sha256').update(entry.infobox.map(f => `${f.fieldKey}:${f.fieldValue}`).sort().join('|')).digest('hex')
-        : 'no-infobox';
+      const infoboxHash =
+        entry.infobox.length > 0
+          ? crypto
+              .createHash('sha256')
+              .update(
+                entry.infobox
+                  .map((f) => `${f.fieldKey}:${f.fieldValue}`)
+                  .sort()
+                  .join('|')
+              )
+              .digest('hex')
+          : 'no-infobox';
 
       const calculatedMasterHash = crypto
         .createHash('sha256')
@@ -650,13 +706,13 @@ const verifyIntegrity = async () => {
         compromised.push({
           id: entry._id.toString(),
           title: entry.title,
-          reason: reason || 'Metadata/Content Tampered'
+          reason: reason || 'Metadata/Content Tampered',
         });
       } else if (reason) {
         compromised.push({
           id: entry._id.toString(),
           title: entry.title,
-          reason
+          reason,
         });
       }
     }
@@ -669,7 +725,14 @@ const verifyIntegrity = async () => {
 };
 
 // Activity Logging
-const logActivity = async (username, action, entityType, entityId = null, entityTitle = null, details = null) => {
+const logActivity = async (
+  username,
+  action,
+  entityType,
+  entityId = null,
+  entityTitle = null,
+  details = null
+) => {
   try {
     await ActivityLog.create({
       username,
@@ -677,7 +740,7 @@ const logActivity = async (username, action, entityType, entityId = null, entity
       entityType,
       entityId,
       entityTitle,
-      details
+      details,
     });
   } catch (error) {
     console.error('Failed to log activity:', error);
@@ -693,12 +756,9 @@ const getActivityLogs = async (options = {}) => {
     if (action) filter.action = action;
     if (entityType) filter.entityType = entityType;
 
-    const logs = await ActivityLog.find(filter)
-      .sort({ timestamp: -1 })
-      .skip(offset)
-      .limit(limit);
+    const logs = await ActivityLog.find(filter).sort({ timestamp: -1 }).skip(offset).limit(limit);
 
-    return logs.map(l => ({
+    return logs.map((l) => ({
       id: l._id.toString(),
       username: l.username,
       action: l.action,
@@ -706,7 +766,7 @@ const getActivityLogs = async (options = {}) => {
       entity_id: l.entityId?.toString(),
       entity_title: l.entityTitle,
       details: l.details,
-      timestamp: l.timestamp
+      timestamp: l.timestamp,
     }));
   } catch (error) {
     console.error('Error getting activity logs:', error);
@@ -717,26 +777,26 @@ const getActivityLogs = async (options = {}) => {
 const getLogStats = async () => {
   try {
     const totalLogs = await ActivityLog.countDocuments();
-    const uniqueUsers = await ActivityLog.distinct('username').then(u => u.length);
+    const uniqueUsers = await ActivityLog.distinct('username').then((u) => u.length);
 
     const sevenDaysAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000);
     const recentActions = await ActivityLog.aggregate([
       { $match: { timestamp: { $gte: sevenDaysAgo } } },
       { $group: { _id: '$action', count: { $sum: 1 } } },
-      { $sort: { count: -1 } }
+      { $sort: { count: -1 } },
     ]);
 
     const topUsers = await ActivityLog.aggregate([
       { $group: { _id: '$username', count: { $sum: 1 } } },
       { $sort: { count: -1 } },
-      { $limit: 5 }
+      { $limit: 5 },
     ]);
 
     return {
       totalLogs,
       uniqueUsers,
-      recentActions: recentActions.map(r => ({ action: r._id, count: r.count })),
-      topUsers: topUsers.map(u => ({ username: u._id, count: u.count }))
+      recentActions: recentActions.map((r) => ({ action: r._id, count: r.count })),
+      topUsers: topUsers.map((u) => ({ username: u._id, count: u.count })),
     };
   } catch (error) {
     console.error('Error getting log stats:', error);
@@ -791,5 +851,5 @@ module.exports = {
   // Activity logging
   logActivity,
   getActivityLogs,
-  getLogStats
+  getLogStats,
 };
