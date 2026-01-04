@@ -73,6 +73,8 @@ const TitleBar = ({
                         </button>
                         {activeMenu === 'settings' && (
                             <div style={dropdownStyle}>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('profile'))}>Profile</button>
+                                <div style={separatorStyle}></div>
                                 <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('database'))}>Database</button>
                                 <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('keywords'))}>Keywords</button>
                                 <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('appearances'))}>Appearances</button>

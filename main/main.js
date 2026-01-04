@@ -19,7 +19,6 @@ const {
   getAllTags,
   renameKeyword,
   deleteKeyword,
-  mergeKeywords,
   getEntriesByKeyword,
   getUserPreferences,
   updateUserPreferences,
@@ -31,6 +30,9 @@ const {
   deleteUser,
   updateUserRole,
   toggleUserActive,
+  resetUserPassword,
+  changeOwnPassword,
+  changeOwnUsername,
   getEntries,
   getEntryById,
   createEntry,
@@ -290,13 +292,6 @@ ipcMain.handle('delete-keyword', async (event, keywordId) => {
   return await deleteKeyword(keywordId);
 });
 
-ipcMain.handle('merge-keywords', async (event, { sourceKeywordIds, targetKeywordId }) => {
-  if (!activeSession || activeSession.role !== 'admin') {
-    return { success: false, message: 'Admin access required' };
-  }
-  return await mergeKeywords(sourceKeywordIds, targetKeywordId);
-});
-
 ipcMain.handle('get-entries-by-keyword', async (event, keywordId) => {
   return await getEntriesByKeyword(keywordId);
 });
@@ -531,6 +526,45 @@ ipcMain.handle('toggle-user-active', async (event, username) => {
   if (result.success) {
     const status = result.active ? 'activated' : 'deactivated';
     await logActivity(activeSession.username, 'edit', 'user', null, username, `User ${status}`);
+  }
+  return result;
+});
+
+// Admin: Reset user password
+ipcMain.handle('reset-user-password', async (event, { username, newPassword }) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  const result = await resetUserPassword(username, newPassword);
+  if (result.success) {
+    await logActivity(activeSession.username, 'edit', 'user', null, username, 'Password reset by admin');
+  }
+  return result;
+});
+
+// User: Change own password
+ipcMain.handle('change-own-password', async (event, { currentPassword, newPassword }) => {
+  if (!activeSession) {
+    return { success: false, message: 'Not authenticated' };
+  }
+  const result = await changeOwnPassword(activeSession.username, currentPassword, newPassword);
+  if (result.success) {
+    await logActivity(activeSession.username, 'edit', 'user', null, activeSession.username, 'Changed own password');
+  }
+  return result;
+});
+
+// User: Change own username
+ipcMain.handle('change-own-username', async (event, { newUsername, password }) => {
+  if (!activeSession) {
+    return { success: false, message: 'Not authenticated' };
+  }
+  const currentUsername = activeSession.username;
+  const result = await changeOwnUsername(currentUsername, newUsername, password);
+  if (result.success) {
+    await logActivity(newUsername, 'edit', 'user', null, newUsername, `Changed username from ${currentUsername}`);
+    // Update active session
+    activeSession.username = newUsername;
   }
   return result;
 });

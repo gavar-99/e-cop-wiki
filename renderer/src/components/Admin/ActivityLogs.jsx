@@ -1,30 +1,25 @@
 import React, { useState, useEffect } from 'react';
-import { Clock, User, FileText, Trash2, Edit, UserPlus, LogIn, LogOut } from 'lucide-react';
+import { Search, Filter } from 'lucide-react';
 
 const ActivityLogs = () => {
   const [logs, setLogs] = useState([]);
-  const [stats, setStats] = useState(null);
-  const [filter, setFilter] = useState({
-    username: '',
-    action: '',
-    entityType: ''
-  });
+  const [filteredLogs, setFilteredLogs] = useState([]);
+  const [searchQuery, setSearchQuery] = useState('');
+  const [actionFilter, setActionFilter] = useState('');
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     loadLogs();
-    loadStats();
-  }, [filter]);
+  }, []);
+
+  useEffect(() => {
+    filterLogs();
+  }, [logs, searchQuery, actionFilter]);
 
   const loadLogs = async () => {
     setLoading(true);
     try {
-      const filterOptions = {};
-      if (filter.username) filterOptions.username = filter.username;
-      if (filter.action) filterOptions.action = filter.action;
-      if (filter.entityType) filterOptions.entityType = filter.entityType;
-
-      const result = await window.wikiAPI.getActivityLogs(filterOptions);
+      const result = await window.wikiAPI.getActivityLogs({});
       setLogs(result);
     } catch (error) {
       console.error('Failed to load logs:', error);
@@ -33,37 +28,25 @@ const ActivityLogs = () => {
     }
   };
 
-  const loadStats = async () => {
-    try {
-      const result = await window.wikiAPI.getLogStats();
-      setStats(result);
-    } catch (error) {
-      console.error('Failed to load stats:', error);
-    }
-  };
+  const filterLogs = () => {
+    let filtered = logs;
 
-  const getActionIcon = (action) => {
-    switch (action) {
-      case 'create': return <FileText size={16} color="#28a745" />;
-      case 'edit': return <Edit size={16} color="#ffc107" />;
-      case 'delete': return <Trash2 size={16} color="#dc3545" />;
-      case 'restore': return <FileText size={16} color="#17a2b8" />;
-      case 'login': return <LogIn size={16} color="#6c757d" />;
-      case 'logout': return <LogOut size={16} color="#6c757d" />;
-      default: return <Clock size={16} color="#6c757d" />;
+    // Filter by search query (username or entity title)
+    if (searchQuery) {
+      const query = searchQuery.toLowerCase();
+      filtered = filtered.filter(
+        (log) =>
+          log.username.toLowerCase().includes(query) ||
+          (log.entity_title && log.entity_title.toLowerCase().includes(query))
+      );
     }
-  };
 
-  const getActionColor = (action) => {
-    switch (action) {
-      case 'create': return '#28a745';
-      case 'edit': return '#ffc107';
-      case 'delete': return '#dc3545';
-      case 'restore': return '#17a2b8';
-      case 'login': return '#6c757d';
-      case 'logout': return '#6c757d';
-      default: return '#6c757d';
+    // Filter by action
+    if (actionFilter) {
+      filtered = filtered.filter((log) => log.action === actionFilter);
     }
+
+    setFilteredLogs(filtered);
   };
 
   const formatTimestamp = (timestamp) => {
@@ -82,117 +65,146 @@ const ActivityLogs = () => {
     return date.toLocaleString('en-US', {
       month: 'short',
       day: 'numeric',
-      year: date.getFullYear() !== now.getFullYear() ? 'numeric' : undefined,
       hour: '2-digit',
-      minute: '2-digit'
+      minute: '2-digit',
     });
   };
 
+  const getActionStyle = (action) => {
+    const styles = {
+      create: { bg: '#e8f5e9', color: '#2e7d32', label: 'Created' },
+      edit: { bg: '#fff3e0', color: '#e65100', label: 'Edited' },
+      delete: { bg: '#ffebee', color: '#c62828', label: 'Deleted' },
+      restore: { bg: '#e3f2fd', color: '#1565c0', label: 'Restored' },
+      login: { bg: '#f3e5f5', color: '#6a1b9a', label: 'Login' },
+      logout: { bg: '#fce4ec', color: '#ad1457', label: 'Logout' },
+    };
+    return styles[action] || { bg: '#f5f5f5', color: '#616161', label: action };
+  };
+
+  const getActionCounts = () => {
+    const counts = {};
+    logs.forEach((log) => {
+      counts[log.action] = (counts[log.action] || 0) + 1;
+    });
+    return counts;
+  };
+
+  const actionCounts = getActionCounts();
+
   return (
-    <div style={{ padding: '20px 30px', height: '600px', display: 'flex', flexDirection: 'column' }}>
-      {/* Header with Stats */}
-      <div style={{ marginBottom: '20px' }}>
-        <h3 style={titleStyle}>Activity Logs</h3>
-        {stats && (
-          <div style={{display: 'flex', gap: '15px', marginTop: '15px', flexWrap: 'wrap'}}>
-            <div style={statCardStyle}>
-              <div style={statLabelStyle}>Total Activities</div>
-              <div style={statValueStyle}>{stats.totalLogs.toLocaleString()}</div>
+    <div style={containerStyle}>
+      {/* Header */}
+      <div style={headerStyle}>
+        <div>
+          <h3 style={titleStyle}>Activity Logs</h3>
+          <p style={subtitleStyle}>{logs.length} total activities</p>
+        </div>
+      </div>
+
+      {/* Quick Stats */}
+      <div style={statsRowStyle}>
+        {Object.entries(actionCounts).map(([action, count]) => {
+          const style = getActionStyle(action);
+          return (
+            <div
+              key={action}
+              style={{
+                ...statChipStyle,
+                backgroundColor: style.bg,
+                color: style.color,
+              }}
+            >
+              <span style={{ fontWeight: '600' }}>{count}</span> {style.label}
             </div>
-            <div style={statCardStyle}>
-              <div style={statLabelStyle}>Active Users</div>
-              <div style={statValueStyle}>{stats.uniqueUsers}</div>
-            </div>
-            {stats.recentActions && stats.recentActions.length > 0 && (
-              <div style={statCardStyle}>
-                <div style={statLabelStyle}>Top Activity (7d)</div>
-                <div style={statValueStyle}>
-                  {stats.recentActions[0].action}
-                  <span style={{fontSize: '0.7em', marginLeft: '5px', color: '#72777d'}}>
-                    ({stats.recentActions[0].count})
-                  </span>
-                </div>
-              </div>
-            )}
-          </div>
-        )}
+          );
+        })}
       </div>
 
       {/* Filters */}
-      <div style={filterContainerStyle}>
-        <input
-          type="text"
-          placeholder="Filter by username..."
-          value={filter.username}
-          onChange={(e) => setFilter({...filter, username: e.target.value})}
-          style={filterInputStyle}
-        />
-        <select
-          value={filter.action}
-          onChange={(e) => setFilter({...filter, action: e.target.value})}
-          style={filterSelectStyle}
-        >
-          <option value="">All Actions</option>
-          <option value="create">Create</option>
-          <option value="edit">Edit</option>
-          <option value="delete">Delete</option>
-          <option value="restore">Restore</option>
-          <option value="login">Login</option>
-          <option value="logout">Logout</option>
-        </select>
-        <select
-          value={filter.entityType}
-          onChange={(e) => setFilter({...filter, entityType: e.target.value})}
-          style={filterSelectStyle}
-        >
-          <option value="">All Types</option>
-          <option value="entry">Entries</option>
-          <option value="user">Users</option>
-          <option value="auth">Authentication</option>
-        </select>
+      <div style={filtersStyle}>
+        <div style={searchBoxStyle}>
+          <Search size={16} color="#666" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+          <input
+            type="text"
+            placeholder="Search by user or entry..."
+            value={searchQuery}
+            onChange={(e) => setSearchQuery(e.target.value)}
+            style={searchInputStyle}
+          />
+        </div>
+
+        <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
+          <Filter size={16} color="#666" />
+          <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} style={selectStyle}>
+            <option value="">All Actions</option>
+            <option value="create">Created</option>
+            <option value="edit">Edited</option>
+            <option value="delete">Deleted</option>
+            <option value="restore">Restored</option>
+            <option value="login">Login</option>
+            <option value="logout">Logout</option>
+          </select>
+        </div>
       </div>
 
-      {/* Logs List */}
-      <div style={logsContainerStyle}>
+      {/* Logs Table */}
+      <div style={tableContainerStyle}>
         {loading ? (
-          <div style={{textAlign: 'center', padding: '40px', color: '#72777d'}}>
-            Loading logs...
-          </div>
-        ) : logs.length === 0 ? (
-          <div style={{textAlign: 'center', padding: '40px', color: '#72777d'}}>
-            No activity logs found
-          </div>
+          <div style={emptyStateStyle}>Loading logs...</div>
+        ) : filteredLogs.length === 0 ? (
+          <div style={emptyStateStyle}>No activity logs found</div>
         ) : (
-          logs.map((log) => (
-            <div key={log.id} style={logItemStyle}>
-              <div style={{display: 'flex', alignItems: 'flex-start', gap: '12px'}}>
-                <div style={{marginTop: '2px'}}>
-                  {getActionIcon(log.action)}
-                </div>
-                <div style={{flex: 1}}>
-                  <div style={{display: 'flex', alignItems: 'center', gap: '8px', marginBottom: '4px'}}>
-                    <User size={14} color="#54595d" />
-                    <span style={usernameStyle}>{log.username}</span>
-                    <span style={{...actionBadgeStyle, backgroundColor: `${getActionColor(log.action)}20`, color: getActionColor(log.action)}}>
-                      {log.action}
-                    </span>
-                    <span style={entityTypeStyle}>{log.entity_type}</span>
-                  </div>
-                  {log.entity_title && (
-                    <div style={entityTitleStyle}>
-                      <strong>{log.entity_title}</strong>
-                    </div>
-                  )}
-                  {log.details && (
-                    <div style={detailsStyle}>{log.details}</div>
-                  )}
-                </div>
-                <div style={timestampStyle}>
-                  {formatTimestamp(log.timestamp)}
-                </div>
-              </div>
-            </div>
-          ))
+          <table style={tableStyle}>
+            <thead>
+              <tr style={tableHeaderRowStyle}>
+                <th style={{ ...tableHeaderStyle, width: '15%' }}>Time</th>
+                <th style={{ ...tableHeaderStyle, width: '12%' }}>User</th>
+                <th style={{ ...tableHeaderStyle, width: '12%' }}>Action</th>
+                <th style={{ ...tableHeaderStyle, width: '10%' }}>Type</th>
+                <th style={{ ...tableHeaderStyle, width: '51%' }}>Details</th>
+              </tr>
+            </thead>
+            <tbody>
+              {filteredLogs.map((log, index) => {
+                const actionStyle = getActionStyle(log.action);
+                return (
+                  <tr key={log.id || index} style={tableRowStyle}>
+                    <td style={tableCellStyle}>
+                      <span style={timeStyle}>{formatTimestamp(log.timestamp)}</span>
+                    </td>
+                    <td style={tableCellStyle}>
+                      <span style={userStyle}>{log.username}</span>
+                    </td>
+                    <td style={tableCellStyle}>
+                      <span
+                        style={{
+                          ...actionBadgeStyle,
+                          backgroundColor: actionStyle.bg,
+                          color: actionStyle.color,
+                        }}
+                      >
+                        {actionStyle.label}
+                      </span>
+                    </td>
+                    <td style={tableCellStyle}>
+                      <span style={typeStyle}>{log.entity_type || '-'}</span>
+                    </td>
+                    <td style={tableCellStyle}>
+                      <div>
+                        {log.entity_title && (
+                          <div style={entityTitleStyle}>{log.entity_title}</div>
+                        )}
+                        {log.details && (
+                          <div style={detailsStyle}>{log.details}</div>
+                        )}
+                      </div>
+                    </td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
         )}
       </div>
     </div>
@@ -200,116 +212,164 @@ const ActivityLogs = () => {
 };
 
 // Styles
+const containerStyle = {
+  padding: '30px',
+  backgroundColor: '#fff',
+  height: '100%',
+  display: 'flex',
+  flexDirection: 'column',
+};
+
+const headerStyle = {
+  display: 'flex',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  marginBottom: '20px',
+};
+
 const titleStyle = {
   fontFamily: "'Linux Libertine', Georgia, serif",
   fontSize: '1.8em',
   color: '#202122',
-  marginBottom: '5px',
-  fontWeight: '600'
+  margin: 0,
 };
 
-const statCardStyle = {
-  backgroundColor: '#f8f9fa',
-  padding: '12px 16px',
-  borderRadius: '4px',
-  border: '1px solid #e1e4e8',
-  minWidth: '140px'
-};
-
-const statLabelStyle = {
-  fontSize: '0.75em',
+const subtitleStyle = {
+  fontSize: '0.9em',
   color: '#72777d',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px',
-  marginBottom: '4px'
+  margin: '5px 0 0 0',
 };
 
-const statValueStyle = {
-  fontSize: '1.5em',
-  fontWeight: 'bold',
-  color: '#202122'
-};
-
-const filterContainerStyle = {
+const statsRowStyle = {
   display: 'flex',
   gap: '10px',
+  flexWrap: 'wrap',
   marginBottom: '20px',
-  paddingBottom: '15px',
-  borderBottom: '1px solid #e1e4e8'
 };
 
-const filterInputStyle = {
+const statChipStyle = {
+  padding: '6px 12px',
+  borderRadius: '20px',
+  fontSize: '0.85em',
+  display: 'inline-flex',
+  alignItems: 'center',
+  gap: '4px',
+};
+
+const filtersStyle = {
+  display: 'flex',
+  gap: '15px',
+  marginBottom: '20px',
+  alignItems: 'center',
+};
+
+const searchBoxStyle = {
+  position: 'relative',
   flex: 1,
-  padding: '8px 12px',
-  fontSize: '0.9em',
+  maxWidth: '400px',
+};
+
+const searchInputStyle = {
+  width: '100%',
+  padding: '10px 10px 10px 40px',
   border: '1px solid #ccc',
   borderRadius: '4px',
-  outline: 'none'
+  fontSize: '0.95em',
+  outline: 'none',
 };
 
-const filterSelectStyle = {
-  padding: '8px 12px',
-  fontSize: '0.9em',
+const selectStyle = {
+  padding: '10px 12px',
   border: '1px solid #ccc',
   borderRadius: '4px',
+  fontSize: '0.95em',
   backgroundColor: '#fff',
-  cursor: 'pointer'
+  cursor: 'pointer',
+  outline: 'none',
 };
 
-const logsContainerStyle = {
+const tableContainerStyle = {
   flex: 1,
-  overflowY: 'auto',
-  backgroundColor: '#fff',
+  overflow: 'auto',
+  border: '1px solid #e1e4e8',
   borderRadius: '4px',
-  border: '1px solid #e1e4e8'
 };
 
-const logItemStyle = {
+const tableStyle = {
+  width: '100%',
+  borderCollapse: 'collapse',
+  fontSize: '0.9em',
+};
+
+const tableHeaderRowStyle = {
+  backgroundColor: '#f8f9fa',
+  position: 'sticky',
+  top: 0,
+  zIndex: 1,
+};
+
+const tableHeaderStyle = {
   padding: '12px 16px',
-  borderBottom: '1px solid #eaecf0',
-  transition: 'background-color 0.15s',
-  cursor: 'default'
-};
-
-const usernameStyle = {
+  textAlign: 'left',
   fontWeight: '600',
   color: '#202122',
-  fontSize: '0.95em'
+  borderBottom: '2px solid #e1e4e8',
+  fontSize: '0.85em',
+  textTransform: 'uppercase',
+  letterSpacing: '0.5px',
+};
+
+const tableRowStyle = {
+  borderBottom: '1px solid #eaecf0',
+  transition: 'background-color 0.1s',
+};
+
+const tableCellStyle = {
+  padding: '12px 16px',
+  verticalAlign: 'top',
+};
+
+const timeStyle = {
+  color: '#72777d',
+  fontSize: '0.9em',
+};
+
+const userStyle = {
+  fontWeight: '500',
+  color: '#202122',
 };
 
 const actionBadgeStyle = {
-  padding: '2px 8px',
-  borderRadius: '10px',
-  fontSize: '0.75em',
+  padding: '4px 10px',
+  borderRadius: '12px',
+  fontSize: '0.85em',
   fontWeight: '600',
-  textTransform: 'uppercase',
-  letterSpacing: '0.5px'
+  display: 'inline-block',
 };
 
-const entityTypeStyle = {
-  fontSize: '0.85em',
-  color: '#72777d',
-  fontStyle: 'italic'
+const typeStyle = {
+  color: '#54595d',
+  fontSize: '0.9em',
+  textTransform: 'capitalize',
 };
 
 const entityTitleStyle = {
-  fontSize: '0.9em',
-  color: '#0645ad',
-  marginTop: '2px',
-  marginBottom: '4px'
+  fontWeight: '500',
+  color: '#36c',
+  marginBottom: '4px',
 };
 
 const detailsStyle = {
-  fontSize: '0.85em',
   color: '#54595d',
-  lineHeight: '1.4'
+  fontSize: '0.9em',
+  lineHeight: '1.4',
 };
 
-const timestampStyle = {
-  fontSize: '0.8em',
+const emptyStateStyle = {
+  textAlign: 'center',
+  padding: '60px 20px',
   color: '#72777d',
-  whiteSpace: 'nowrap',
-  marginLeft: '8px'
+  fontSize: '1em',
 };
 
 export default ActivityLogs;

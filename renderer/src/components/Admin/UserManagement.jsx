@@ -63,6 +63,23 @@ const UserManagement = ({ onClose, embedded = false }) => {
     }
   };
 
+  const handleResetPassword = async (username) => {
+    const newPassword = prompt(`Enter new password for ${username}:`);
+    if (!newPassword) return;
+
+    if (newPassword.length < 6) {
+      alert('Password must be at least 6 characters long');
+      return;
+    }
+
+    const result = await window.wikiAPI.resetUserPassword({ username, newPassword });
+    if (result.success) {
+      alert('Password reset successfully');
+    } else {
+      alert('Error resetting password: ' + result.message);
+    }
+  };
+
   const content = (
     <div style={embedded ? {} : modalContentStyle}>
       {!embedded && (
@@ -156,7 +173,18 @@ const UserManagement = ({ onClose, embedded = false }) => {
                                     </span>
                                 </td>
                                 <td style={tdStyle}>
-                                    <div style={{display: 'flex', gap: '8px'}}>
+                                    <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
+                                        <button
+                                            onClick={() => handleResetPassword(user.username)}
+                                            style={{
+                                                ...actionBtnStyle,
+                                                backgroundColor: '#f3e5f5',
+                                                color: '#6a1b9a',
+                                                border: '1px solid #ce93d8'
+                                            }}
+                                        >
+                                            Reset Password
+                                        </button>
                                         <button
                                             onClick={() => handleToggleActive(user.username)}
                                             style={{

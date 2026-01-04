@@ -201,6 +201,85 @@ const toggleUserActive = async (username) => {
   }
 };
 
+// Admin: Reset user password
+const resetUserPassword = async (username, newPassword) => {
+  try {
+    const salt = crypto.randomBytes(16).toString('hex');
+    const hash = crypto.pbkdf2Sync(newPassword, salt, 1000, 64, 'sha512').toString('hex');
+
+    await User.updateOne({ username }, { salt, hash });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+// User: Change own password
+const changeOwnPassword = async (username, currentPassword, newPassword) => {
+  try {
+    const user = await User.findOne({ username });
+    if (!user) return { success: false, message: 'User not found' };
+
+    // Verify current password
+    const hash = crypto.pbkdf2Sync(currentPassword, user.salt, 1000, 64, 'sha512').toString('hex');
+    if (hash !== user.hash) {
+      return { success: false, message: 'Current password is incorrect' };
+    }
+
+    // Set new password
+    const newSalt = crypto.randomBytes(16).toString('hex');
+    const newHash = crypto.pbkdf2Sync(newPassword, newSalt, 1000, 64, 'sha512').toString('hex');
+
+    user.salt = newSalt;
+    user.hash = newHash;
+    await user.save();
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+// User: Change own username
+const changeOwnUsername = async (currentUsername, newUsername, password) => {
+  try {
+    // Check if new username already exists
+    const existingUser = await User.findOne({ username: newUsername });
+    if (existingUser) {
+      return { success: false, message: 'Username already exists' };
+    }
+
+    // Verify password
+    const user = await User.findOne({ username: currentUsername });
+    if (!user) return { success: false, message: 'User not found' };
+
+    const hash = crypto.pbkdf2Sync(password, user.salt, 1000, 64, 'sha512').toString('hex');
+    if (hash !== user.hash) {
+      return { success: false, message: 'Password is incorrect' };
+    }
+
+    // Update username
+    user.username = newUsername;
+    await user.save();
+
+    // Update username in all entries
+    await Entry.updateMany(
+      { authorUsername: currentUsername },
+      { authorUsername: newUsername }
+    );
+
+    // Update username in activity logs
+    await ActivityLog.updateMany(
+      { username: currentUsername },
+      { username: newUsername }
+    );
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
 // Asset Management
 const saveAssetWithHash = (sourcePath) => {
   const fileBuffer = fs.readFileSync(sourcePath);
@@ -280,7 +359,7 @@ const getAllTags = async () => {
       },
       {
         $project: {
-          id: '$_id',
+          id: { $toString: '$_id' },
           name: 1,
           count: { $size: '$entries' },
         },
@@ -345,39 +424,6 @@ const deleteKeyword = async (keywordId) => {
     return { success: true, entriesAffected: result.modifiedCount };
   } catch (error) {
     console.error('Error deleting keyword:', error);
-    return { success: false, message: error.message };
-  }
-};
-
-const mergeKeywords = async (sourceKeywordIds, targetKeywordId) => {
-  try {
-    let entriesMerged = 0;
-
-    // Find all entries that have any of the source keywords
-    const entries = await Entry.find({ tags: { $in: sourceKeywordIds } });
-
-    for (const entry of entries) {
-      // Remove source keywords and add target keyword if not already present
-      const updatedTags = entry.tags.filter(
-        (tagId) => !sourceKeywordIds.includes(tagId.toString())
-      );
-
-      if (!updatedTags.some((tagId) => tagId.toString() === targetKeywordId)) {
-        updatedTags.push(targetKeywordId);
-      }
-
-      entry.tags = updatedTags;
-      entry.updatedAt = new Date();
-      await entry.save();
-      entriesMerged++;
-    }
-
-    // Delete source tag documents
-    await Tag.deleteMany({ _id: { $in: sourceKeywordIds } });
-
-    return { success: true, entriesMerged };
-  } catch (error) {
-    console.error('Error merging keywords:', error);
     return { success: false, message: error.message };
   }
 };
@@ -966,6 +1012,9 @@ module.exports = {
   deleteUser,
   updateUserRole,
   toggleUserActive,
+  resetUserPassword,
+  changeOwnPassword,
+  changeOwnUsername,
   // Asset management
   saveAssetWithHash,
   // Tag management
@@ -976,7 +1025,6 @@ module.exports = {
   // Keyword management
   renameKeyword,
   deleteKeyword,
-  mergeKeywords,
   getEntriesByKeyword,
   // User preferences
   getUserPreferences,

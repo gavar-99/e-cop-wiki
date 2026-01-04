@@ -68,8 +68,6 @@ const AppearancesSettings = ({ currentUser }) => {
 
   return (
     <div style={containerStyle}>
-      <h3 style={headerStyle}>Appearance Settings</h3>
-
       {/* Theme Section */}
       <section style={sectionStyle}>
         <h4 style={sectionHeaderStyle}>Theme</h4>
@@ -377,13 +375,6 @@ const containerStyle = {
   backgroundColor: '#fff',
   maxHeight: '70vh',
   overflowY: 'auto',
-};
-
-const headerStyle = {
-  fontFamily: "'Linux Libertine', Georgia, serif",
-  fontSize: '1.8em',
-  marginBottom: '25px',
-  color: '#202122',
 };
 
 const sectionStyle = {

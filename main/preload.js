@@ -28,6 +28,9 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   deleteUser: (username) => ipcRenderer.invoke('delete-user', username),
   updateUserRole: (data) => ipcRenderer.invoke('update-user-role', data),
   toggleUserActive: (username) => ipcRenderer.invoke('toggle-user-active', username),
+  resetUserPassword: (data) => ipcRenderer.invoke('reset-user-password', data),
+  changeOwnPassword: (data) => ipcRenderer.invoke('change-own-password', data),
+  changeOwnUsername: (data) => ipcRenderer.invoke('change-own-username', data),
   // Database Export/Import/Backup
   exportDatabase: () => ipcRenderer.invoke('export-database'),
   importDatabase: () => ipcRenderer.invoke('import-database'),
@@ -54,7 +57,6 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   // Keyword Management
   renameKeyword: (data) => ipcRenderer.invoke('rename-keyword', data),
   deleteKeyword: (keywordId) => ipcRenderer.invoke('delete-keyword', keywordId),
-  mergeKeywords: (data) => ipcRenderer.invoke('merge-keywords', data),
   getEntriesByKeyword: (keywordId) => ipcRenderer.invoke('get-entries-by-keyword', keywordId),
   // User Preferences
   getUserPreferences: (username) => ipcRenderer.invoke('get-user-preferences', username),

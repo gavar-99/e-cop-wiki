@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Search, Edit2, Trash2, Eye, GitMerge } from 'lucide-react';
+import { Search, Edit2, Trash2, Eye } from 'lucide-react';
 
 const KeywordsManagement = () => {
   const [keywords, setKeywords] = useState([]);
@@ -82,42 +82,41 @@ const KeywordsManagement = () => {
     }
   };
 
-  const handleMerge = async () => {
-    if (selectedKeywords.length < 2) {
-      alert('Please select at least 2 keywords to merge');
+  const handleDeleteSelected = async () => {
+    if (selectedKeywords.length === 0) {
+      alert('Please select at least one keyword to delete');
       return;
     }
 
     const selectedKeywordObjects = keywords.filter((kw) =>
       selectedKeywords.includes(kw.id)
     );
+
+    const totalEntries = selectedKeywordObjects.reduce((sum, kw) => sum + kw.count, 0);
     const keywordNames = selectedKeywordObjects.map((kw) => kw.name).join(', ');
 
-    const targetIndex = prompt(
-      `Select target keyword to keep (enter number 1-${selectedKeywords.length}):\n\n` +
-        selectedKeywordObjects.map((kw, i) => `${i + 1}. ${kw.name} (${kw.count} entries)`).join('\n')
-    );
+    const confirmMsg = `Are you sure you want to delete ${selectedKeywords.length} keyword(s)?\n\nKeywords: ${keywordNames}\n\nThese keywords are used in ${totalEntries} total entries and will be removed from all of them.`;
 
-    const targetIdx = parseInt(targetIndex) - 1;
-    if (isNaN(targetIdx) || targetIdx < 0 || targetIdx >= selectedKeywords.length) {
-      alert('Invalid selection');
-      return;
+    if (!confirm(confirmMsg)) return;
+
+    let successCount = 0;
+    let failCount = 0;
+
+    for (const keywordId of selectedKeywords) {
+      const result = await window.wikiAPI.deleteKeyword(keywordId);
+      if (result.success) {
+        successCount++;
+      } else {
+        failCount++;
+      }
     }
 
-    const targetKeywordId = selectedKeywords[targetIdx];
-    const sourceKeywordIds = selectedKeywords.filter((id) => id !== targetKeywordId);
-
-    const result = await window.wikiAPI.mergeKeywords({
-      sourceKeywordIds,
-      targetKeywordId,
-    });
-
-    if (result.success) {
-      alert(`Successfully merged ${result.entriesMerged} entries`);
+    if (successCount > 0) {
+      alert(`Successfully deleted ${successCount} keyword(s)${failCount > 0 ? `, ${failCount} failed` : ''}`);
       loadKeywords();
       setSelectedKeywords([]);
     } else {
-      alert('Failed to merge keywords');
+      alert('Failed to delete keywords');
     }
   };
 
@@ -134,8 +133,6 @@ const KeywordsManagement = () => {
 
   return (
     <div style={containerStyle}>
-      <h3 style={headerStyle}>Keywords Management</h3>
-
       {/* Search and Controls */}
       <div style={controlsContainerStyle}>
         <div style={searchContainerStyle}>
@@ -158,9 +155,9 @@ const KeywordsManagement = () => {
             </select>
           </label>
 
-          {selectedKeywords.length > 1 && (
-            <button onClick={handleMerge} style={mergeButtonStyle}>
-              <GitMerge size={16} /> Merge Selected ({selectedKeywords.length})
+          {selectedKeywords.length > 0 && (
+            <button onClick={handleDeleteSelected} style={deleteSelectedButtonStyle}>
+              <Trash2 size={16} /> Delete Selected ({selectedKeywords.length})
             </button>
           )}
         </div>
@@ -256,13 +253,6 @@ const containerStyle = {
   backgroundColor: '#fff',
 };
 
-const headerStyle = {
-  fontFamily: "'Linux Libertine', Georgia, serif",
-  fontSize: '1.8em',
-  marginBottom: '20px',
-  color: '#202122',
-};
-
 const controlsContainerStyle = {
   display: 'flex',
   justifyContent: 'space-between',
@@ -294,18 +284,19 @@ const selectStyle = {
   cursor: 'pointer',
 };
 
-const mergeButtonStyle = {
+const deleteSelectedButtonStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: '6px',
   padding: '8px 16px',
-  backgroundColor: '#36c',
+  backgroundColor: '#dc3545',
   color: '#fff',
   border: 'none',
   borderRadius: '4px',
   cursor: 'pointer',
   fontSize: '0.9em',
   fontWeight: '500',
+  transition: 'background-color 0.2s',
 };
 
 const listContainerStyle = {

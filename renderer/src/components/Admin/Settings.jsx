@@ -4,6 +4,7 @@ import DatabaseSettings from './DatabaseSettings';
 import ActivityLogs from './ActivityLogs';
 import KeywordsManagement from './KeywordsManagement';
 import AppearancesSettings from './AppearancesSettings';
+import ProfileSettings from './ProfileSettings';
 
 const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
   const isAdmin = currentUser?.role === 'admin';
@@ -15,6 +16,7 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
       database: 'Database Settings',
       keywords: 'Keywords Management',
       appearances: 'Appearance Settings',
+      profile: 'Profile Settings',
       users: 'User Management',
       logs: 'Activity Logs',
       about: 'About'
@@ -45,6 +47,7 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
           {activeTab === 'database' && <DatabaseSettings />}
           {activeTab === 'keywords' && <KeywordsManagement />}
           {activeTab === 'appearances' && <AppearancesSettings currentUser={currentUser} />}
+          {activeTab === 'profile' && <ProfileSettings currentUser={currentUser} />}
           {activeTab === 'users' && isAdmin && <UserManagement embedded={true} />}
           {activeTab === 'logs' && isAdmin && <ActivityLogs />}
           {activeTab === 'about' && <AboutTab />}
