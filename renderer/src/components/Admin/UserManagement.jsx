@@ -1,8 +1,10 @@
 import React, { useState, useEffect } from 'react';
+import ActivityLogs from './ActivityLogs';
 
 const UserManagement = ({ onClose, embedded = false }) => {
   const [users, setUsers] = useState([]);
   const [newUser, setNewUser] = useState({ username: '', password: '', role: 'viewer' });
+  const [showLogsFor, setShowLogsFor] = useState(null);
 
   useEffect(() => {
     loadUsers();
@@ -133,7 +135,10 @@ const UserManagement = ({ onClose, embedded = false }) => {
                             <th style={thStyle}>Role</th>
                             <th style={thStyle}>Status</th>
                             <th style={thStyle}>Created</th>
-                            <th style={thStyle}>Actions</th>
+                            <th style={{...thStyle, textAlign: 'center'}}>Logs</th>
+                            <th style={{...thStyle, textAlign: 'center'}}>Reset Password</th>
+                            <th style={{...thStyle, textAlign: 'center'}}>Toggle Status</th>
+                            <th style={{...thStyle, textAlign: 'center'}}>Delete</th>
                         </tr>
                     </thead>
                     <tbody>
@@ -147,7 +152,7 @@ const UserManagement = ({ onClose, embedded = false }) => {
                                     <select
                                         value={user.role}
                                         onChange={(e) => handleRoleChange(user.username, e.target.value)}
-                                        style={{...inputStyle, padding: '4px'}}
+                                        style={{...inputStyle, padding: '6px 8px', fontSize: '0.9em'}}
                                         disabled={user.active === 0}
                                     >
                                         <option value="reader">Reader</option>
@@ -157,7 +162,7 @@ const UserManagement = ({ onClose, embedded = false }) => {
                                 </td>
                                 <td style={tdStyle}>
                                     <span style={{
-                                        padding: '2px 8px',
+                                        padding: '3px 10px',
                                         borderRadius: '12px',
                                         fontSize: '0.8em',
                                         backgroundColor: user.active === 1 ? '#e8f5e9' : '#ffebee',
@@ -172,37 +177,37 @@ const UserManagement = ({ onClose, embedded = false }) => {
                                         {user.created_at ? new Date(user.created_at).toLocaleDateString() : 'N/A'}
                                     </span>
                                 </td>
-                                <td style={tdStyle}>
-                                    <div style={{display: 'flex', gap: '8px', flexWrap: 'wrap'}}>
-                                        <button
-                                            onClick={() => handleResetPassword(user.username)}
-                                            style={{
-                                                ...actionBtnStyle,
-                                                backgroundColor: '#f3e5f5',
-                                                color: '#6a1b9a',
-                                                border: '1px solid #ce93d8'
-                                            }}
-                                        >
-                                            Reset Password
-                                        </button>
-                                        <button
-                                            onClick={() => handleToggleActive(user.username)}
-                                            style={{
-                                                ...actionBtnStyle,
-                                                backgroundColor: user.active === 1 ? '#fff3e0' : '#e3f2fd',
-                                                color: user.active === 1 ? '#e65100' : '#1565c0',
-                                                border: `1px solid ${user.active === 1 ? '#ffcc80' : '#90caf9'}`
-                                            }}
-                                        >
-                                            {user.active === 1 ? 'Deactivate' : 'Activate'}
-                                        </button>
-                                        <button
-                                            onClick={() => handleDeleteUser(user.username)}
-                                            style={deleteBtnStyle}
-                                        >
-                                            Delete
-                                        </button>
-                                    </div>
+                                <td style={{...tdStyle, textAlign: 'center'}}>
+                                    <button
+                                        onClick={() => setShowLogsFor(user.username)}
+                                        style={blueBtnStyle}
+                                    >
+                                        View Logs
+                                    </button>
+                                </td>
+                                <td style={{...tdStyle, textAlign: 'center'}}>
+                                    <button
+                                        onClick={() => handleResetPassword(user.username)}
+                                        style={blueBtnStyle}
+                                    >
+                                        Reset
+                                    </button>
+                                </td>
+                                <td style={{...tdStyle, textAlign: 'center'}}>
+                                    <button
+                                        onClick={() => handleToggleActive(user.username)}
+                                        style={blueBtnStyle}
+                                    >
+                                        {user.active === 1 ? 'Deactivate' : 'Activate'}
+                                    </button>
+                                </td>
+                                <td style={{...tdStyle, textAlign: 'center'}}>
+                                    <button
+                                        onClick={() => handleDeleteUser(user.username)}
+                                        style={redBtnStyle}
+                                    >
+                                        Delete
+                                    </button>
                                 </td>
                             </tr>
                         ))}
@@ -214,10 +219,27 @@ const UserManagement = ({ onClose, embedded = false }) => {
   );
 
   // Return content wrapped in modal overlay if not embedded
-  return embedded ? content : (
-    <div style={modalOverlayStyle}>
-      {content}
-    </div>
+  return (
+    <>
+      {embedded ? content : (
+        <div style={modalOverlayStyle}>
+          {content}
+        </div>
+      )}
+
+      {/* User Logs Modal */}
+      {showLogsFor && (
+        <div style={logsModalOverlayStyle}>
+          <div style={logsModalContentStyle}>
+            <div style={{display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px'}}>
+              <h2 style={{margin: 0}}>User Activity Logs</h2>
+              <button onClick={() => setShowLogsFor(null)} style={closeBtnStyle}>✕</button>
+            </div>
+            <ActivityLogs filterUsername={showLogsFor} />
+          </div>
+        </div>
+      )}
+    </>
   );
 };
 
@@ -268,19 +290,34 @@ const primaryBtnStyle = {
     fontWeight: 'bold'
 };
 
-const deleteBtnStyle = {
-    padding: '4px 8px',
-    backgroundColor: '#ffebee',
-    color: '#c62828',
-    border: '1px solid #ffcdd2',
+const blueBtnStyle = {
+    padding: '6px 12px',
+    backgroundColor: '#36c',
+    color: '#fff',
+    border: 'none',
     borderRadius: '4px',
     cursor: 'pointer',
-    fontSize: '0.85em'
+    fontSize: '0.85em',
+    fontWeight: '500',
+    transition: 'background-color 0.2s'
+};
+
+const redBtnStyle = {
+    padding: '6px 12px',
+    backgroundColor: '#dc3545',
+    color: '#fff',
+    border: 'none',
+    borderRadius: '4px',
+    cursor: 'pointer',
+    fontSize: '0.85em',
+    fontWeight: '500',
+    transition: 'background-color 0.2s'
 };
 
 const thStyle = {
     padding: '10px',
-    color: '#555'
+    color: '#555',
+    fontSize: '0.9em'
 };
 
 const tdStyle = {
@@ -288,12 +325,28 @@ const tdStyle = {
     color: '#333'
 };
 
-const actionBtnStyle = {
-    padding: '4px 8px',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontSize: '0.85em',
-    fontWeight: '500'
+const logsModalOverlayStyle = {
+    position: 'fixed',
+    top: 0,
+    left: 0,
+    right: 0,
+    bottom: 0,
+    backgroundColor: 'rgba(0,0,0,0.6)',
+    display: 'flex',
+    justifyContent: 'center',
+    alignItems: 'center',
+    zIndex: 10000
+};
+
+const logsModalContentStyle = {
+    backgroundColor: '#fff',
+    padding: '30px',
+    borderRadius: '8px',
+    width: '90%',
+    maxWidth: '1200px',
+    maxHeight: '90vh',
+    overflowY: 'auto',
+    boxShadow: '0 10px 40px rgba(0,0,0,0.3)'
 };
 
 export default UserManagement;

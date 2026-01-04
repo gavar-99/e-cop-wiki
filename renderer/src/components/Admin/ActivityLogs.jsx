@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Filter } from 'lucide-react';
 
-const ActivityLogs = () => {
+const ActivityLogs = ({ filterUsername = null }) => {
   const [logs, setLogs] = useState([]);
   const [filteredLogs, setFilteredLogs] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -14,7 +14,7 @@ const ActivityLogs = () => {
 
   useEffect(() => {
     filterLogs();
-  }, [logs, searchQuery, actionFilter]);
+  }, [logs, searchQuery, actionFilter, filterUsername]);
 
   const loadLogs = async () => {
     setLoading(true);
@@ -30,6 +30,11 @@ const ActivityLogs = () => {
 
   const filterLogs = () => {
     let filtered = logs;
+
+    // Filter by username if provided (from UserManagement)
+    if (filterUsername) {
+      filtered = filtered.filter((log) => log.username === filterUsername);
+    }
 
     // Filter by search query (username or entity title)
     if (searchQuery) {
@@ -97,8 +102,14 @@ const ActivityLogs = () => {
       {/* Header */}
       <div style={headerStyle}>
         <div>
-          <h3 style={titleStyle}>Activity Logs</h3>
-          <p style={subtitleStyle}>{logs.length} total activities</p>
+          <h3 style={titleStyle}>
+            {filterUsername ? `Activity Logs - ${filterUsername}` : 'Activity Logs'}
+          </h3>
+          <p style={subtitleStyle}>
+            {filterUsername
+              ? `${filteredLogs.length} activities by ${filterUsername}`
+              : `${logs.length} total activities`}
+          </p>
         </div>
       </div>
 
