@@ -51,11 +51,17 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   // Activity Logs (Admin only)
   getActivityLogs: (options) => ipcRenderer.invoke('get-activity-logs', options),
   getLogStats: () => ipcRenderer.invoke('get-log-stats'),
+  // Keyword Management
+  renameKeyword: (data) => ipcRenderer.invoke('rename-keyword', data),
+  deleteKeyword: (keywordId) => ipcRenderer.invoke('delete-keyword', keywordId),
+  mergeKeywords: (data) => ipcRenderer.invoke('merge-keywords', data),
+  getEntriesByKeyword: (keywordId) => ipcRenderer.invoke('get-entries-by-keyword', keywordId),
+  // User Preferences
+  getUserPreferences: (username) => ipcRenderer.invoke('get-user-preferences', username),
+  updateUserPreferences: (data) => ipcRenderer.invoke('update-user-preferences', data),
+  resetUserPreferences: (username) => ipcRenderer.invoke('reset-user-preferences', username),
   // Window controls
   minimize: () => ipcRenderer.invoke('window-minimize'),
   maximize: () => ipcRenderer.invoke('window-maximize'),
   close: () => ipcRenderer.invoke('window-close'),
-  // Menu event listeners
-  onOpenUserManagement: (callback) => ipcRenderer.on('open-user-management', callback),
-  onLogout: (callback) => ipcRenderer.on('logout-user', callback),
 });

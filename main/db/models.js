@@ -65,15 +65,32 @@ const activityLogSchema = new Schema({
   timestamp: { type: Date, default: Date.now, index: true }
 });
 
+// User Preferences Schema
+const userPreferencesSchema = new Schema({
+  username: { type: String, required: true, unique: true },
+  theme: { type: String, enum: ['light', 'dark'], default: 'light' },
+  accentColor: { type: String, default: '#36c' },
+  fontFamily: { type: String, default: 'Linux Libertine' },
+  fontSize: { type: String, enum: ['small', 'medium', 'large'], default: 'medium' },
+  lineHeight: { type: Number, default: 1.6 },
+  sidebarPosition: { type: String, enum: ['left', 'right'], default: 'right' },
+  defaultView: { type: String, enum: ['dashboard', 'lastViewed'], default: 'dashboard' },
+  contentWidth: { type: String, enum: ['narrow', 'medium', 'wide'], default: 'medium' },
+  spacing: { type: String, enum: ['compact', 'comfortable', 'spacious'], default: 'comfortable' },
+  updatedAt: { type: Date, default: Date.now }
+});
+
 // Create models
 const User = mongoose.model('User', userSchema);
 const Tag = mongoose.model('Tag', tagSchema);
 const Entry = mongoose.model('Entry', entrySchema);
 const ActivityLog = mongoose.model('ActivityLog', activityLogSchema);
+const UserPreferences = mongoose.model('UserPreferences', userPreferencesSchema);
 
 module.exports = {
   User,
   Tag,
   Entry,
-  ActivityLog
+  ActivityLog,
+  UserPreferences
 };

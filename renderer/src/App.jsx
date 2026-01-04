@@ -19,6 +19,7 @@ const App = () => {
   const [integrityIssues, setIntegrityIssues] = useState([]);
   const [currentUser, setCurrentUser] = useState(null);
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsInitialTab, setSettingsInitialTab] = useState('database');
 
   // Search autocomplete state
   const [searchSuggestions, setSearchSuggestions] = useState([]);
@@ -77,19 +78,6 @@ const App = () => {
     }
   }, [currentUser]);
 
-  // Listen for menu events
-  useEffect(() => {
-    if (window.wikiAPI.onOpenUserManagement) {
-      window.wikiAPI.onOpenUserManagement(() => {
-        setShowSettings(true);
-      });
-    }
-    if (window.wikiAPI.onLogout) {
-      window.wikiAPI.onLogout(() => {
-        handleLogout();
-      });
-    }
-  }, []);
 
   // Search autocomplete with debounce
   useEffect(() => {
@@ -117,6 +105,28 @@ const App = () => {
   const handleLogout = async () => {
     await window.wikiAPI.logout();
     setCurrentUser(null);
+  };
+
+  const openSettings = (tab = 'database') => {
+    setSettingsInitialTab(tab);
+    setShowSettings(true);
+  };
+
+  const handleExportDatabase = async () => {
+    try {
+      await window.wikiAPI.exportDatabase();
+    } catch (error) {
+      console.error('Export failed:', error);
+    }
+  };
+
+  const handleImportDatabase = async () => {
+    try {
+      await window.wikiAPI.importDatabase();
+      loadEntries(); // Reload entries after import
+    } catch (error) {
+      console.error('Import failed:', error);
+    }
   };
 
   const handleSearchKeyDown = (e) => {
@@ -251,11 +261,16 @@ const App = () => {
       <TitleBar
         transparent={false}
         userRole={currentUser.role}
-        onManageUsers={() => setShowSettings(true)}
+        onOpenSettings={openSettings}
+        onOpenAdmin={openSettings}
+        onOpenAbout={() => openSettings('about')}
+        onExportDatabase={handleExportDatabase}
+        onImportDatabase={handleImportDatabase}
+        onLogout={handleLogout}
         onExit={() => window.wikiAPI.close()}
       />
-      {showSettings && currentUser.role === 'admin' && (
-        <Settings onClose={() => setShowSettings(false)} currentUser={currentUser} />
+      {showSettings && (
+        <Settings onClose={() => setShowSettings(false)} currentUser={currentUser} initialTab={settingsInitialTab} />
       )}
       <div style={{ height: '32px' }} /> {/* Spacer for TitleBar */}
       {integrityIssues.length > 0 && (

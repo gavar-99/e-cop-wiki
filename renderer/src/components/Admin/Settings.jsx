@@ -1,11 +1,26 @@
-import React, { useState } from 'react';
+import React from 'react';
 import UserManagement from './UserManagement';
 import DatabaseSettings from './DatabaseSettings';
 import ActivityLogs from './ActivityLogs';
+import KeywordsManagement from './KeywordsManagement';
+import AppearancesSettings from './AppearancesSettings';
 
-const Settings = ({ onClose, currentUser }) => {
+const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
   const isAdmin = currentUser?.role === 'admin';
-  const [activeTab, setActiveTab] = useState('database'); // Default to database tab
+  const activeTab = initialTab; // Fixed tab - no switching within modal
+
+  // Get title based on active tab
+  const getTitle = () => {
+    const titles = {
+      database: 'Database Settings',
+      keywords: 'Keywords Management',
+      appearances: 'Appearance Settings',
+      users: 'User Management',
+      logs: 'Activity Logs',
+      about: 'About'
+    };
+    return titles[activeTab] || 'Settings';
+  };
 
   return (
     <div style={modalOverlayStyle}>
@@ -13,7 +28,7 @@ const Settings = ({ onClose, currentUser }) => {
         {/* Header with close button */}
         <div style={headerStyle}>
           <h2 style={{ margin: 0, fontFamily: "'Linux Libertine', Georgia, serif", fontSize: '1.8em' }}>
-            Settings
+            {getTitle()}
           </h2>
           <button
             onClick={onClose}
@@ -25,49 +40,11 @@ const Settings = ({ onClose, currentUser }) => {
           </button>
         </div>
 
-        {/* Tab Navigation */}
-        <div style={tabContainerStyle}>
-          <button
-            onClick={() => setActiveTab('database')}
-            style={tabStyle(activeTab === 'database')}
-            onMouseEnter={(e) => activeTab !== 'database' && (e.target.style.borderBottom = '2px solid #90caf9')}
-            onMouseLeave={(e) => activeTab !== 'database' && (e.target.style.borderBottom = '2px solid transparent')}
-          >
-            Database
-          </button>
-          {isAdmin && (
-            <>
-              <button
-                onClick={() => setActiveTab('users')}
-                style={tabStyle(activeTab === 'users')}
-                onMouseEnter={(e) => activeTab !== 'users' && (e.target.style.borderBottom = '2px solid #90caf9')}
-                onMouseLeave={(e) => activeTab !== 'users' && (e.target.style.borderBottom = '2px solid transparent')}
-              >
-                Users
-              </button>
-              <button
-                onClick={() => setActiveTab('logs')}
-                style={tabStyle(activeTab === 'logs')}
-                onMouseEnter={(e) => activeTab !== 'logs' && (e.target.style.borderBottom = '2px solid #90caf9')}
-                onMouseLeave={(e) => activeTab !== 'logs' && (e.target.style.borderBottom = '2px solid transparent')}
-              >
-                Activity Logs
-              </button>
-            </>
-          )}
-          <button
-            onClick={() => setActiveTab('about')}
-            style={tabStyle(activeTab === 'about')}
-            onMouseEnter={(e) => activeTab !== 'about' && (e.target.style.borderBottom = '2px solid #90caf9')}
-            onMouseLeave={(e) => activeTab !== 'about' && (e.target.style.borderBottom = '2px solid transparent')}
-          >
-            About
-          </button>
-        </div>
-
         {/* Tab Content */}
         <div style={tabContentStyle}>
           {activeTab === 'database' && <DatabaseSettings />}
+          {activeTab === 'keywords' && <KeywordsManagement />}
+          {activeTab === 'appearances' && <AppearancesSettings currentUser={currentUser} />}
           {activeTab === 'users' && isAdmin && <UserManagement embedded={true} />}
           {activeTab === 'logs' && isAdmin && <ActivityLogs />}
           {activeTab === 'about' && <AboutTab />}
@@ -153,26 +130,6 @@ const closeButtonStyle = {
   fontWeight: 'bold',
   transition: 'background-color 0.2s'
 };
-
-const tabContainerStyle = {
-  display: 'flex',
-  borderBottom: '1px solid #e1e4e8',
-  paddingLeft: '30px',
-  backgroundColor: '#f8f9fa'
-};
-
-const tabStyle = (isActive) => ({
-  padding: '15px 25px',
-  backgroundColor: 'transparent',
-  border: 'none',
-  borderBottom: isActive ? '2px solid #36c' : '2px solid transparent',
-  cursor: 'pointer',
-  fontSize: '1em',
-  fontWeight: isActive ? '600' : '500',
-  color: isActive ? '#36c' : '#54595d',
-  transition: 'all 0.2s',
-  outline: 'none'
-});
 
 const tabContentStyle = {
   flex: 1,

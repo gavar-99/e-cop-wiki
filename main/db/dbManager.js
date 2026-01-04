@@ -2,7 +2,7 @@ const crypto = require('crypto');
 const fs = require('fs');
 const path = require('path');
 const mongoConnection = require('./mongoConnection');
-const { User, Tag, Entry, ActivityLog } = require('./models');
+const { User, Tag, Entry, ActivityLog, UserPreferences } = require('./models');
 
 const { assetDir, userDataPath } = mongoConnection;
 
@@ -292,6 +292,149 @@ const getAllTags = async () => {
   } catch (error) {
     console.error('Error getting all tags:', error);
     return [];
+  }
+};
+
+// Keyword Management Functions
+const renameKeyword = async (oldName, newName) => {
+  try {
+    const normalizedOld = oldName.trim().toLowerCase();
+    const normalizedNew = newName.trim().toLowerCase();
+
+    if (!normalizedOld || !normalizedNew) {
+      return { success: false, message: 'Keyword names cannot be empty' };
+    }
+
+    if (normalizedOld === normalizedNew) {
+      return { success: false, message: 'New name must be different from old name' };
+    }
+
+    // Check if new name already exists
+    const existingTag = await Tag.findOne({ name: normalizedNew });
+    if (existingTag) {
+      return { success: false, message: 'A keyword with this name already exists' };
+    }
+
+    // Find and update the tag
+    const tag = await Tag.findOne({ name: normalizedOld });
+    if (!tag) {
+      return { success: false, message: 'Keyword not found' };
+    }
+
+    tag.name = normalizedNew;
+    await tag.save();
+
+    return { success: true, message: 'Keyword renamed successfully' };
+  } catch (error) {
+    console.error('Error renaming keyword:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+const deleteKeyword = async (keywordId) => {
+  try {
+    // Remove keyword from all entries
+    const result = await Entry.updateMany(
+      { tags: keywordId },
+      { $pull: { tags: keywordId }, updatedAt: new Date() }
+    );
+
+    // Delete the tag document
+    await Tag.findByIdAndDelete(keywordId);
+
+    return { success: true, entriesAffected: result.modifiedCount };
+  } catch (error) {
+    console.error('Error deleting keyword:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+const mergeKeywords = async (sourceKeywordIds, targetKeywordId) => {
+  try {
+    let entriesMerged = 0;
+
+    // Find all entries that have any of the source keywords
+    const entries = await Entry.find({ tags: { $in: sourceKeywordIds } });
+
+    for (const entry of entries) {
+      // Remove source keywords and add target keyword if not already present
+      const updatedTags = entry.tags.filter(
+        (tagId) => !sourceKeywordIds.includes(tagId.toString())
+      );
+
+      if (!updatedTags.some((tagId) => tagId.toString() === targetKeywordId)) {
+        updatedTags.push(targetKeywordId);
+      }
+
+      entry.tags = updatedTags;
+      entry.updatedAt = new Date();
+      await entry.save();
+      entriesMerged++;
+    }
+
+    // Delete source tag documents
+    await Tag.deleteMany({ _id: { $in: sourceKeywordIds } });
+
+    return { success: true, entriesMerged };
+  } catch (error) {
+    console.error('Error merging keywords:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+const getEntriesByKeyword = async (keywordId) => {
+  try {
+    const entries = await Entry.find({
+      tags: keywordId,
+      deletedAt: null
+    }).select('_id title');
+
+    return entries.map((e) => ({
+      id: e._id.toString(),
+      title: e.title,
+    }));
+  } catch (error) {
+    console.error('Error getting entries by keyword:', error);
+    return [];
+  }
+};
+
+// User Preferences Management
+const getUserPreferences = async (username) => {
+  try {
+    let prefs = await UserPreferences.findOne({ username });
+    if (!prefs) {
+      // Create default preferences
+      prefs = await UserPreferences.create({ username });
+    }
+    return prefs;
+  } catch (error) {
+    console.error('Error getting user preferences:', error);
+    return null;
+  }
+};
+
+const updateUserPreferences = async (username, preferences) => {
+  try {
+    await UserPreferences.findOneAndUpdate(
+      { username },
+      { ...preferences, updatedAt: new Date() },
+      { upsert: true, new: true }
+    );
+    return { success: true };
+  } catch (error) {
+    console.error('Error updating user preferences:', error);
+    return { success: false, message: error.message };
+  }
+};
+
+const resetUserPreferences = async (username) => {
+  try {
+    await UserPreferences.findOneAndDelete({ username });
+    return { success: true };
+  } catch (error) {
+    console.error('Error resetting user preferences:', error);
+    return { success: false, message: error.message };
   }
 };
 
@@ -830,6 +973,15 @@ module.exports = {
   setEntryTags,
   getEntryTags,
   getAllTags,
+  // Keyword management
+  renameKeyword,
+  deleteKeyword,
+  mergeKeywords,
+  getEntriesByKeyword,
+  // User preferences
+  getUserPreferences,
+  updateUserPreferences,
+  resetUserPreferences,
   // Entry management
   getEntries,
   getEntryById,

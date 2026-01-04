@@ -17,6 +17,13 @@ const {
   setEntryTags,
   getEntryTags,
   getAllTags,
+  renameKeyword,
+  deleteKeyword,
+  mergeKeywords,
+  getEntriesByKeyword,
+  getUserPreferences,
+  updateUserPreferences,
+  resetUserPreferences,
   searchEntries,
   searchAutocomplete,
   createUser,
@@ -53,61 +60,9 @@ protocol.registerSchemesAsPrivileged([
   { scheme: 'wiki-asset', privileges: { standard: true, secure: true, supportFetchAPI: true } },
 ]);
 
-// Create Application Menu
+// Create Application Menu (minimal - only development tools)
 function createMenu() {
   const template = [
-    {
-      label: 'File',
-      submenu: [
-        {
-          label: 'Verify Database Integrity',
-          click: async () => {
-            const issues = await verifyIntegrity();
-            if (issues && issues.length > 0) {
-              console.log(`Warning: Integrity Issues Found: ${issues.length}`);
-            } else {
-              console.log('Database integrity verified');
-            }
-          }
-        },
-        { type: 'separator' },
-        {
-          label: 'Logout',
-          click: () => {
-            activeSession = null;
-            if (mainWindow) {
-              mainWindow.webContents.send('logout-user');
-            }
-          }
-        },
-        { type: 'separator' },
-        {
-          label: 'Exit',
-          accelerator: process.platform === 'darwin' ? 'Cmd+Q' : 'Ctrl+Q',
-          click: () => app.quit()
-        }
-      ]
-    },
-    {
-      label: 'Settings',
-      submenu: [
-        {
-          label: 'Manage Users',
-          click: () => {
-            if (mainWindow && activeSession && activeSession.role === 'admin') {
-              mainWindow.webContents.send('open-user-management');
-            }
-          }
-        },
-        { type: 'separator' },
-        {
-          label: 'About',
-          click: () => {
-            console.log('E-Cop Wiki v1.0.0 - Secure Research Database');
-          }
-        }
-      ]
-    },
     {
       label: 'View',
       submenu: [
@@ -318,6 +273,54 @@ ipcMain.handle('get-all-tags', async () => {
 
 ipcMain.handle('get-entry-tags', async (event, entryId) => {
   return await getEntryTags(entryId);
+});
+
+// Keyword Management
+ipcMain.handle('rename-keyword', async (event, { oldName, newName }) => {
+  if (!activeSession) {
+    return { success: false, message: 'Not authenticated' };
+  }
+  return await renameKeyword(oldName, newName);
+});
+
+ipcMain.handle('delete-keyword', async (event, keywordId) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return await deleteKeyword(keywordId);
+});
+
+ipcMain.handle('merge-keywords', async (event, { sourceKeywordIds, targetKeywordId }) => {
+  if (!activeSession || activeSession.role !== 'admin') {
+    return { success: false, message: 'Admin access required' };
+  }
+  return await mergeKeywords(sourceKeywordIds, targetKeywordId);
+});
+
+ipcMain.handle('get-entries-by-keyword', async (event, keywordId) => {
+  return await getEntriesByKeyword(keywordId);
+});
+
+// User Preferences
+ipcMain.handle('get-user-preferences', async (event, username) => {
+  if (!activeSession || activeSession.username !== username) {
+    return null;
+  }
+  return await getUserPreferences(username);
+});
+
+ipcMain.handle('update-user-preferences', async (event, { username, preferences }) => {
+  if (!activeSession || activeSession.username !== username) {
+    return { success: false, message: 'Permission denied' };
+  }
+  return await updateUserPreferences(username, preferences);
+});
+
+ipcMain.handle('reset-user-preferences', async (event, username) => {
+  if (!activeSession || activeSession.username !== username) {
+    return { success: false, message: 'Permission denied' };
+  }
+  return await resetUserPreferences(username);
 });
 
 ipcMain.handle('search-entries', async (event, query) => {

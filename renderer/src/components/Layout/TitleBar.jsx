@@ -1,7 +1,17 @@
 import React, { useState, useEffect, useRef } from 'react';
 import logo from '../../assets/logo.png';
 
-const TitleBar = ({ transparent = false, userRole, onManageUsers, onExit }) => {
+const TitleBar = ({
+  transparent = false,
+  userRole,
+  onOpenSettings,
+  onOpenAdmin,
+  onOpenAbout,
+  onExportDatabase,
+  onImportDatabase,
+  onLogout,
+  onExit
+}) => {
   const [activeMenu, setActiveMenu] = useState(null);
   const menuRef = useRef(null);
 
@@ -19,43 +29,83 @@ const TitleBar = ({ transparent = false, userRole, onManageUsers, onExit }) => {
     setActiveMenu(activeMenu === menu ? null : menu);
   };
 
+  const handleMenuItemClick = (callback) => {
+    setActiveMenu(null);
+    callback();
+  };
+
   return (
     <div style={{ ...containerStyle, backgroundColor: transparent ? 'transparent' : '#fff', borderBottom: transparent ? 'none' : '1px solid #ddd' }}>
       <div style={dragRegionStyle}>
          <div style={{display: 'flex', alignItems: 'center', marginLeft: '10px', height: '100%'}}>
             <img src={logo} style={{width: '16px', marginRight: '8px', opacity: 0.8}} />
             <span style={{fontFamily: 'Segoe UI', fontSize: '12px', color: transparent ? '#fff' : '#333', marginRight: '20px'}}>E-Cop Wiki</span>
-            
+
             {!transparent && (
                 <div ref={menuRef} style={{display: 'flex', height: '100%', WebkitAppRegion: 'no-drag', position: 'relative'}}>
+                    {/* Files Menu */}
                     <div style={{position: 'relative', height: '100%'}}>
-                        <button 
-                            style={{...menuItemStyle, backgroundColor: activeMenu === 'files' ? '#eee' : 'transparent'}} 
+                        <button
+                            style={{...menuItemStyle, backgroundColor: activeMenu === 'files' ? '#eee' : 'transparent'}}
                             onClick={() => handleMenuClick('files')}
                         >
                             Files
                         </button>
                         {activeMenu === 'files' && (
                             <div style={dropdownStyle}>
-                                <button style={dropdownItemStyle} onClick={() => { setActiveMenu(null); onExit(); }}>Exit</button>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(onLogout)}>Logout</button>
+                                <div style={separatorStyle}></div>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(onExportDatabase)}>Export Database</button>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(onImportDatabase)}>Import Database</button>
+                                <div style={separatorStyle}></div>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(onExit)}>Exit</button>
                             </div>
                         )}
                     </div>
-                    
+
+                    {/* Settings Menu */}
                     <div style={{position: 'relative', height: '100%'}}>
-                        <button 
-                            style={{...menuItemStyle, backgroundColor: activeMenu === 'settings' ? '#eee' : 'transparent'}} 
+                        <button
+                            style={{...menuItemStyle, backgroundColor: activeMenu === 'settings' ? '#eee' : 'transparent'}}
                             onClick={() => handleMenuClick('settings')}
                         >
                             Settings
                         </button>
                         {activeMenu === 'settings' && (
                             <div style={dropdownStyle}>
-                                {userRole === 'admin' && (
-                                    <button style={dropdownItemStyle} onClick={() => { setActiveMenu(null); onManageUsers(); }}>Database & Users</button>
-                                )}
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('database'))}>Database</button>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('keywords'))}>Keywords</button>
+                                <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenSettings('appearances'))}>Appearances</button>
                             </div>
                         )}
+                    </div>
+
+                    {/* Admin Menu (admin only) */}
+                    {userRole === 'admin' && (
+                        <div style={{position: 'relative', height: '100%'}}>
+                            <button
+                                style={{...menuItemStyle, backgroundColor: activeMenu === 'admin' ? '#eee' : 'transparent'}}
+                                onClick={() => handleMenuClick('admin')}
+                            >
+                                Admin
+                            </button>
+                            {activeMenu === 'admin' && (
+                                <div style={dropdownStyle}>
+                                    <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenAdmin('users'))}>Users</button>
+                                    <button style={dropdownItemStyle} onClick={() => handleMenuItemClick(() => onOpenAdmin('logs'))}>Logs</button>
+                                </div>
+                            )}
+                        </div>
+                    )}
+
+                    {/* About Menu */}
+                    <div style={{position: 'relative', height: '100%'}}>
+                        <button
+                            style={menuItemStyle}
+                            onClick={() => handleMenuItemClick(onOpenAbout)}
+                        >
+                            About
+                        </button>
                     </div>
                 </div>
             )}
@@ -86,14 +136,14 @@ const containerStyle = {
 const dragRegionStyle = {
   flex: 1,
   height: '100%',
-  WebkitAppRegion: 'drag', // Helper for Electron drag
+  WebkitAppRegion: 'drag',
   display: 'flex',
   alignItems: 'center',
 };
 
 const controlsStyle = {
   display: 'flex',
-  WebkitAppRegion: 'no-drag', // Buttons must be clickable
+  WebkitAppRegion: 'no-drag',
   height: '100%',
 };
 
@@ -119,9 +169,7 @@ const menuItemStyle = {
     cursor: 'pointer',
     height: '100%',
     fontFamily: 'Segoe UI',
-    ':hover': {
-        backgroundColor: '#eee'
-    }
+    transition: 'background 0.2s',
 };
 
 const dropdownStyle = {
@@ -147,9 +195,7 @@ const dropdownItemStyle = {
     fontSize: '12px',
     color: '#333',
     width: '100%',
-    ':hover': {
-        backgroundColor: '#f0f0f0'
-    }
+    transition: 'background 0.1s',
 };
 
 const separatorStyle = {
