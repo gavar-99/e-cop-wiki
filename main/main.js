@@ -20,6 +20,9 @@ const { registerAll: registerIpcHandlers } = require('./ipc');
 // Main window reference
 let mainWindow = null;
 
+// Developer mode flag - set to true for development features
+const isDev = !app.isPackaged;
+
 // Register custom protocol for secure image loading
 protocol.registerSchemesAsPrivileged([
   { scheme: 'wiki-asset', privileges: { standard: true, secure: true, supportFetchAPI: true } },
@@ -65,6 +68,12 @@ function createWindow() {
 
   mainWindow.loadFile(path.join(__dirname, '../dist/index.html'));
   createMenu();
+
+  // Open DevTools in development mode
+  if (isDev) {
+    mainWindow.webContents.openDevTools();
+    console.log('🔧 Developer mode enabled');
+  }
 
   // Register IPC handlers (needs mainWindow for dialogs)
   registerIpcHandlers(ipcMain, mainWindow);

@@ -19,10 +19,32 @@ const DatabaseSettings = () => {
   const [isReconnecting, setIsReconnecting] = useState(false);
   const [testResult, setTestResult] = useState(null);
 
+  const [isInitializing, setIsInitializing] = useState(false);
+
   useEffect(() => {
     loadBackupSettings();
     loadDbSettings();
   }, []);
+
+  const handleInitializeDatabase = async () => {
+    setIsInitializing(true);
+    try {
+      const result = await window.wikiAPI.initializeDatabase();
+      if (result.success) {
+        if (result.created) {
+          alert('✅ Database initialized successfully!\n\nMaster admin account created:\n• Username: master\n• Password: master123\n\n⚠️ Please change the password after first login!');
+        } else {
+          alert('ℹ️ Database already initialized.\n\nMaster admin account already exists.');
+        }
+      } else {
+        alert('❌ Failed to initialize database:\n' + result.message);
+      }
+    } catch (error) {
+      alert('❌ Error: ' + error.message);
+    } finally {
+      setIsInitializing(false);
+    }
+  };
 
   const loadDbSettings = async () => {
     try {
@@ -241,6 +263,22 @@ const DatabaseSettings = () => {
               Error: {dbStatus.connectionError}
             </span>
           )}
+        </p>
+        <button
+          onClick={handleInitializeDatabase}
+          disabled={isInitializing || !dbStatus?.isConnected}
+          style={{
+            ...primaryButtonStyle,
+            marginTop: '15px',
+            backgroundColor: '#2e7d32',
+          }}
+          onMouseEnter={(e) => !isInitializing && dbStatus?.isConnected && (e.target.style.backgroundColor = '#1b5e20')}
+          onMouseLeave={(e) => !isInitializing && dbStatus?.isConnected && (e.target.style.backgroundColor = '#2e7d32')}
+        >
+          {isInitializing ? 'Initializing...' : 'Initialize Database'}
+        </button>
+        <p style={{ fontSize: '0.8em', color: '#666', marginTop: '8px' }}>
+          Creates collections and master admin user (master / master123) if not exists.
         </p>
       </div>
 

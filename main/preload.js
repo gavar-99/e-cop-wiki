@@ -7,6 +7,7 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   updateDbConfig: (config) => ipcRenderer.invoke('update-db-config', config),
   testDbConnection: (uri) => ipcRenderer.invoke('test-db-connection', uri),
   reconnectDb: () => ipcRenderer.invoke('reconnect-db'),
+  initializeDatabase: () => ipcRenderer.invoke('initialize-database'),
   // Entry operations
   saveEntry: (data) => ipcRenderer.invoke('save-wiki-entry', data),
   getEntries: () => ipcRenderer.invoke('get-wiki-entries'),
