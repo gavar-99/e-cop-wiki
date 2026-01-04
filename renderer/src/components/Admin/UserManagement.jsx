@@ -182,7 +182,7 @@ const UserManagement = ({ onClose, embedded = false }) => {
                                         onClick={() => setShowLogsFor(user.username)}
                                         style={blueBtnStyle}
                                     >
-                                        View Logs
+                                        View
                                     </button>
                                 </td>
                                 <td style={{...tdStyle, textAlign: 'center'}}>
