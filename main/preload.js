@@ -11,6 +11,7 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   // Entry operations
   saveEntry: (data) => ipcRenderer.invoke('save-wiki-entry', data),
   getEntries: () => ipcRenderer.invoke('get-wiki-entries'),
+  getEntryByTitle: (title) => ipcRenderer.invoke('get-entry-by-title', title),
   getAllTags: () => ipcRenderer.invoke('get-all-tags'),
   getEntryTags: (entryId) => ipcRenderer.invoke('get-entry-tags', entryId),
   searchEntries: (query) => ipcRenderer.invoke('search-entries', query),

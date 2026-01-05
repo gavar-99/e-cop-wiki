@@ -1,13 +1,7 @@
 import React from 'react';
 import { colors, typography, spacing, borderRadius, shadows } from '../../styles/theme';
 
-const HashtagDropdown = ({
-  suggestions,
-  selectedIndex,
-  position,
-  onSelect,
-  onMouseEnter,
-}) => {
+const HashtagDropdown = ({ suggestions, selectedIndex, position, onSelect, onMouseEnter }) => {
   if (!suggestions || suggestions.length === 0) return null;
 
   return (
@@ -20,7 +14,7 @@ const HashtagDropdown = ({
     >
       {suggestions.map((suggestion, index) => (
         <div
-          key={suggestion.id}
+          key={suggestion.id || `new-${suggestion.name}`}
           onClick={() => onSelect(suggestion.name)}
           onMouseEnter={() => onMouseEnter(index)}
           style={{
@@ -30,7 +24,11 @@ const HashtagDropdown = ({
         >
           <span style={styles.tagName}>#{suggestion.name}</span>
           <span style={styles.count}>
-            ({suggestion.count} {suggestion.count === 1 ? 'entry' : 'entries'})
+            {suggestion.isNew ? (
+              <span style={{ color: colors.success }}>(new tag)</span>
+            ) : (
+              `(${suggestion.count} ${suggestion.count === 1 ? 'entry' : 'entries'})`
+            )}
           </span>
         </div>
       ))}

@@ -1,18 +1,13 @@
 import React from 'react';
 import { ChevronLeft, ChevronRight } from 'lucide-react';
 import { VIEWS, canEdit as checkCanEdit } from '../../constants';
-import {
-  colors,
-  typography,
-  spacing,
-  borderRadius,
-  transitions,
-} from '../../styles/theme';
+import { colors, typography, spacing, borderRadius, transitions } from '../../styles/theme';
 
 const NavigationBar = ({
   currentView,
   currentUser,
   onViewChange,
+  onGoHome,
   canGoBack,
   canGoForward,
   onGoBack,
@@ -27,19 +22,13 @@ const NavigationBar = ({
         <div style={styles.topRow}>
           {/* Logo and Nav Links */}
           <div style={styles.leftSection}>
-            <span
-              style={styles.logo}
-              onClick={() => onViewChange(VIEWS.DASHBOARD)}
-            >
+            <span style={styles.logo} onClick={onGoHome}>
               E-Cop Wiki
             </span>
 
             {/* Navigation Links */}
             <div style={styles.navLinks}>
-              <button
-                onClick={() => onViewChange(VIEWS.DASHBOARD)}
-                style={navLinkStyle(currentView === VIEWS.DASHBOARD)}
-              >
+              <button onClick={onGoHome} style={navLinkStyle(currentView === VIEWS.DASHBOARD)}>
                 Home
               </button>
               {canEdit && (

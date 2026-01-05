@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { Search, Edit2, Trash2, Eye } from 'lucide-react';
 
-const KeywordsManagement = () => {
+const KeywordsManagement = ({ onNavigate, onClose }) => {
   const [keywords, setKeywords] = useState([]);
   const [filteredKeywords, setFilteredKeywords] = useState([]);
   const [searchQuery, setSearchQuery] = useState('');
@@ -191,7 +191,18 @@ const KeywordsManagement = () => {
                     style={editInputStyle}
                   />
                 ) : (
-                  <span style={keywordNameStyle}>{keyword.name}</span>
+                  <span 
+                    style={{ ...keywordNameStyle, cursor: 'pointer', color: '#0645ad' }}
+                    onClick={() => {
+                      onNavigate(keyword.name);
+                      if (onClose) onClose();
+                    }}
+                    title={`View article for "${keyword.name}"`}
+                    onMouseEnter={(e) => e.target.style.textDecoration = 'underline'}
+                    onMouseLeave={(e) => e.target.style.textDecoration = 'none'}
+                  >
+                    {keyword.name}
+                  </span>
                 )}
 
                 <span style={countBadgeStyle}>{keyword.count} entries</span>

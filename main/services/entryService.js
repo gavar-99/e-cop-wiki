@@ -20,6 +20,22 @@ const getEntries = async () => {
 };
 
 /**
+ * Get entry by title
+ * @param {string} title - Entry title
+ * @returns {Promise<Object|null>} Formatted entry or null
+ */
+const getEntryByTitle = async (title) => {
+  try {
+    const { formatEntry } = require('../utils/formatters');
+    const entry = await entryRepository.findByTitle(title);
+    return entry ? formatEntry(entry) : null;
+  } catch (error) {
+    console.error('Error getting entry by title:', error);
+    return null;
+  }
+};
+
+/**
  * Get entry by ID
  * @param {string} entryId - Entry ID
  * @returns {Promise<Object|null>} Entry or null
@@ -34,12 +50,64 @@ const getEntryById = async (entryId) => {
 };
 
 /**
+ * Ensure an article exists for each tag
+ * @param {string[]} tags - Array of tag names
+ * @param {string} authorUsername - Username to credit for stubs
+ */
+const ensureTagArticles = async (tags, authorUsername) => {
+  for (const tagName of tags) {
+    try {
+      const existingEntry = await entryRepository.findByTitle(tagName);
+      if (!existingEntry) {
+        console.log(`Creating stub article for keyword: ${tagName}`);
+        const stubTitle = tagName.charAt(0).toUpperCase() + tagName.slice(1);
+        const stubContent = `This is a stub article for **${tagName}**. You can contribute by expanding it.`;
+        
+        // Calculate master hash for the stub
+        const masterHash = calculateEntryHash({
+          title: stubTitle,
+          content: stubContent,
+          tags: [],
+          assets: [],
+          infobox: []
+        });
+
+        await entryRepository.create({
+          title: stubTitle,
+          content: stubContent,
+          sha256Hash: masterHash,
+          authorUsername,
+          tags: [],
+          assets: [],
+          infobox: []
+        });
+      }
+    } catch (error) {
+      console.error(`Error creating stub for ${tagName}:`, error);
+    }
+  }
+};
+
+/**
  * Create new entry
  * @param {Object} params - Entry data
  * @returns {Promise<Object>} Result with success status and entryId
  */
 const createEntry = async ({ title, content, tags = [], infobox = [], assets = [], authorUsername }) => {
   try {
+    // Filter out tags that are already represented in the title
+    // Logic: If the title contains the tag as a whole word, we assume this entry covers the topic.
+    // e.g. Title: "History of Mongolia", Tag: "Mongolia" -> No stub created.
+    const tagsNeedingStubs = tags.filter(tag => {
+      // Escape regex special characters in tag
+      const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tagRegex = new RegExp(`\\b${escapedTag}\\b`, 'i');
+      return !tagRegex.test(title);
+    });
+
+    // Ensure articles exist for other tags
+    await ensureTagArticles(tagsNeedingStubs, authorUsername);
+
     // Get or create tags
     const tagIds = [];
     for (const tagName of tags) {
@@ -94,6 +162,21 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
   try {
     const entry = await entryRepository.findById(entryId);
     if (!entry) return { success: false, message: 'Entry not found' };
+
+    // Get current user (we need authorUsername for potential stubs)
+    // Note: in a real app we'd get this from context, but here we'll use the entry's author
+    // or system if we can't find it.
+    const authorUsername = entry.authorUsername || 'system';
+
+    // Filter out tags that are already represented in the title
+    const tagsNeedingStubs = tags.filter(tag => {
+      const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
+      const tagRegex = new RegExp(`\\b${escapedTag}\\b`, 'i');
+      return !tagRegex.test(title);
+    });
+
+    // Ensure articles exist for all tags
+    await ensureTagArticles(tagsNeedingStubs, authorUsername);
 
     // Get or create tags
     const tagIds = [];
@@ -289,6 +372,7 @@ const searchAutocomplete = async (query) => {
 module.exports = {
   getEntries,
   getEntryById,
+  getEntryByTitle,
   createEntry,
   updateEntry,
   deleteEntry,

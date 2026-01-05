@@ -87,7 +87,14 @@ const EntryForm = ({
       }
 
       hashtagDebounceRef.current = setTimeout(() => {
-        const filtered = allTags
+        // Combine database tags with newly added tags from current form
+        const currentFormTags = tags.map((t) => ({ name: t, count: 0, isNew: true }));
+        const combinedTags = [
+          ...currentFormTags,
+          ...allTags.filter((dbTag) => !tags.includes(dbTag.name)),
+        ];
+
+        const filtered = combinedTags
           .filter((t) => t.name.toLowerCase().startsWith(query.toLowerCase()))
           .slice(0, 5);
 
@@ -192,13 +199,34 @@ const EntryForm = ({
   const handleSubmit = async (e) => {
     e.preventDefault();
 
+    // Process Title: Extract hashtags, add to tags, and clean title
+    let processedTitle = title;
+    const titleTags = [];
+    const titleHashtagRegex = /#([\w_]+)/g;
+    
+    // Find all hashtags in title
+    const matches = [...processedTitle.matchAll(titleHashtagRegex)];
+    matches.forEach(match => {
+      titleTags.push(match[1].replace(/_/g, ' '));
+    });
+
+    // Remove hashtags from title string for the final save
+    // We replace #Tag with Tag (just remove the hash) to keep the word in the title
+    // OR we can remove the whole word if it's purely a tag container. 
+    // User request: "it should be test with different color" -> implies keeping the text.
+    // Let's remove the '#' symbol but keep the text.
+    processedTitle = processedTitle.replace(/#([\w_]+)/g, '$1').trim();
+    
+    // Merge title tags with existing tags (unique only)
+    const finalTags = [...new Set([...tags, ...titleTags])];
+
     try {
       if (mode === ENTRY_FORM_MODES.EDIT) {
         const updateResult = await window.wikiAPI.updateEntry({
           entryId: entry.id,
-          title,
+          title: processedTitle,
           content,
-          tags,
+          tags: finalTags,
           infobox: infobox.map((item, index) => ({
             key: item.field_key || item.key,
             value: item.field_value || item.value,
@@ -214,9 +242,9 @@ const EntryForm = ({
 
         if (files.length > 0) {
           const filePaths = files.map((f) => f.path).filter(Boolean);
-          
+
           if (filePaths.length < files.length) {
-             console.warn('Some files were skipped due to missing paths');
+            console.warn('Some files were skipped due to missing paths');
           }
 
           if (filePaths.length > 0) {
@@ -235,12 +263,12 @@ const EntryForm = ({
         onComplete();
       } else {
         const filePaths = files.map((f) => f.path).filter(Boolean);
-        
+
         const result = await window.wikiAPI.saveEntry({
-          title,
+          title: processedTitle,
           content,
           filePaths,
-          tags,
+          tags: finalTags,
           infobox: infobox.map((item, index) => ({
             key: item.key,
             value: item.value,
@@ -302,9 +330,12 @@ const EntryForm = ({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleFileSelect = (e) => {
+  const handleFileSelect = async (e) => {
     const selectedFiles = Array.from(e.target.files);
-    setFiles((prev) => [...prev, ...selectedFiles]);
+    // Use setTimeout to prevent UI blocking during file processing
+    setTimeout(() => {
+      setFiles((prev) => [...prev, ...selectedFiles]);
+    }, 0);
   };
 
   const updateAssetCaption = async (assetId, caption) => {
@@ -333,7 +364,9 @@ const EntryForm = ({
           <div style={styles.fieldGroup}>
             <label style={styles.label}>
               Entry Title
-              <span style={styles.hint}>(Tip: Type <b>#</b> for tag suggestions)</span>
+              <span style={styles.hint}>
+                (Tip: Type <b>#</b> for tag suggestions)
+              </span>
             </label>
             <input
               ref={titleInputRef}
@@ -403,7 +436,9 @@ const EntryForm = ({
               {tags.length > 0 && (
                 <div style={styles.previewTags}>
                   {tags.map((tag, i) => (
-                    <span key={i} style={styles.previewTag}>{tag}</span>
+                    <span key={i} style={styles.previewTag}>
+                      {tag}
+                    </span>
                   ))}
                 </div>
               )}
@@ -420,9 +455,7 @@ const EntryForm = ({
             />
           )}
 
-          {activeTab === ENTRY_FORM_TABS.SNAPSHOT && (
-            <WebSnapshotTab onCapture={handleCapture} />
-          )}
+          {activeTab === ENTRY_FORM_TABS.SNAPSHOT && <WebSnapshotTab onCapture={handleCapture} />}
 
           {/* Attachments */}
           <AttachmentsSection

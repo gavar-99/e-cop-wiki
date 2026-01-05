@@ -6,7 +6,7 @@ import KeywordsManagement from './KeywordsManagement';
 import AppearancesSettings from './AppearancesSettings/index';
 import ProfileSettings from './ProfileSettings';
 
-const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
+const Settings = ({ onClose, currentUser, initialTab = 'database', onNavigate }) => {
   const isAdmin = currentUser?.role === 'admin';
   const activeTab = initialTab; // Fixed tab - no switching within modal
 
@@ -51,7 +51,7 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
         {/* Tab Content */}
         <div style={tabContentStyle}>
           {activeTab === 'database' && <DatabaseSettings />}
-          {activeTab === 'keywords' && <KeywordsManagement />}
+          {activeTab === 'keywords' && <KeywordsManagement onNavigate={onNavigate} onClose={onClose} />}
           {activeTab === 'appearances' && <AppearancesSettings currentUser={currentUser} />}
           {activeTab === 'profile' && <ProfileSettings currentUser={currentUser} />}
           {activeTab === 'users' && isAdmin && <UserManagement embedded={true} />}

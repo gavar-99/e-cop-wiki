@@ -89,9 +89,20 @@ const App = () => {
   };
 
   const handleNavigate = async (titleOrQuery, skipHistory = false) => {
-    const exactMatch = entries.find(
-      (e) => e.title.toLowerCase() === titleOrQuery.toLowerCase()
-    );
+    // 1. First try local state for quick match
+    let exactMatch = entries.find((e) => e.title.toLowerCase() === titleOrQuery.toLowerCase());
+
+    // 2. If not in local state, try fetching by title directly
+    if (!exactMatch) {
+      try {
+        const entry = await window.wikiAPI.getEntryByTitle(titleOrQuery);
+        if (entry) {
+          exactMatch = entry;
+        }
+      } catch (error) {
+        console.error('Error fetching entry by title:', error);
+      }
+    }
 
     if (exactMatch) {
       if (skipHistory) {
@@ -119,9 +130,7 @@ const App = () => {
 
   const handlePin = (entry) => {
     setPinnedEntries((prev) =>
-      prev.find((e) => e.id === entry.id)
-        ? prev.filter((e) => e.id !== entry.id)
-        : [...prev, entry]
+      prev.find((e) => e.id === entry.id) ? prev.filter((e) => e.id !== entry.id) : [...prev, entry]
     );
   };
 
@@ -152,6 +161,13 @@ const App = () => {
     setCurrentView(VIEWS.DASHBOARD);
     setDraftTitle('');
     setEditingEntry(null);
+  };
+
+  // Handler to go to dashboard and reload all entries
+  const handleGoHome = async () => {
+    await loadEntries();
+    setCurrentView(VIEWS.DASHBOARD);
+    setCurrentEntry(null);
   };
 
   // Render login screen if not authenticated
@@ -185,6 +201,7 @@ const App = () => {
           onClose={() => setShowSettings(false)}
           currentUser={currentUser}
           initialTab={settingsInitialTab}
+          onNavigate={handleNavigate}
         />
       )}
 
@@ -198,6 +215,7 @@ const App = () => {
             currentView={currentView}
             currentUser={currentUser}
             onViewChange={setCurrentView}
+            onGoHome={handleGoHome}
             canGoBack={canGoBack}
             canGoForward={canGoForward}
             onGoBack={goBack}
@@ -223,8 +241,8 @@ const App = () => {
               />
             )}
 
-            {(currentView === VIEWS.ADD || currentView === VIEWS.EDIT) && (
-              userCanEdit ? (
+            {(currentView === VIEWS.ADD || currentView === VIEWS.EDIT) &&
+              (userCanEdit ? (
                 <EntryForm
                   mode={currentView === VIEWS.EDIT ? 'edit' : 'create'}
                   entry={editingEntry}
@@ -234,8 +252,7 @@ const App = () => {
                 />
               ) : (
                 <div>Access Denied</div>
-              )
-            )}
+              ))}
           </div>
         </main>
 

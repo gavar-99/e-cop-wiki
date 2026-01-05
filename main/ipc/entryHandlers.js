@@ -22,6 +22,11 @@ const register = (ipcMain) => {
         return await entryService.getEntries();
     });
 
+    // Get entry by title
+    ipcMain.handle('get-entry-by-title', async (event, title) => {
+        return await entryService.getEntryByTitle(title);
+    });
+
     // Save new entry
     ipcMain.handle('save-wiki-entry', async (event, { title, content, filePaths = [], tags = [], infobox = [] }) => {
         if (!isAuthenticated() || !canEdit()) {

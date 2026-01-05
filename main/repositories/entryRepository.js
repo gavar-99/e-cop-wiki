@@ -25,6 +25,18 @@ const findByIdFormatted = async (entryId) => {
 };
 
 /**
+ * Find entry by title (case-insensitive exact match)
+ * @param {string} title - Entry title
+ * @returns {Promise<Object|null>} Entry document or null
+ */
+const findByTitle = async (title) => {
+    return await Entry.findOne({
+        title: { $regex: new RegExp(`^${title.replace(/[.*+?^${}()|[\]\\]/g, '\\$&')}$`, 'i') },
+        deletedAt: null
+    }).populate('tags', 'name');
+};
+
+/**
  * Get all active entries (not deleted)
  * @returns {Promise<Array>} Array of formatted entries
  */
@@ -238,6 +250,7 @@ const findAllLean = async () => {
 module.exports = {
     findById,
     findByIdFormatted,
+    findByTitle,
     findAllActive,
     findAllWithTags,
     create,
