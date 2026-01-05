@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { colors, typography, spacing, borderRadius } from '../../styles/theme';
 
 const AttachmentsSection = ({
@@ -9,6 +9,18 @@ const AttachmentsSection = ({
   onRemoveNew,
   onUpdateCaption,
 }) => {
+  // Use native file dialog for reliable file path access
+  const handleSelectFiles = async () => {
+    try {
+      const result = await window.wikiAPI.selectFiles();
+      if (!result.canceled && result.files.length > 0) {
+        onFileSelect(result.files);
+      }
+    } catch (error) {
+      console.error('Error selecting files:', error);
+    }
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -16,13 +28,9 @@ const AttachmentsSection = ({
           <label style={styles.label}>📎 Attach Evidence</label>
           <div style={styles.hint}>Supported: Images, PDF (multiple files allowed)</div>
         </div>
-        <input
-          type="file"
-          accept="image/*,application/pdf"
-          multiple
-          onChange={onFileSelect}
-          style={styles.fileInput}
-        />
+        <button type="button" onClick={handleSelectFiles} style={styles.selectButton}>
+          Choose Files
+        </button>
       </div>
 
       {/* Existing Assets (Edit Mode) */}
@@ -110,8 +118,16 @@ const styles = {
     fontSize: typography.fontSize.xs,
     color: colors.primary,
   },
-  fileInput: {
+  selectButton: {
+    padding: `${spacing.md} ${spacing['2xl']}`,
+    backgroundColor: colors.primary,
+    color: colors.white,
+    border: 'none',
+    borderRadius: borderRadius.md,
+    cursor: 'pointer',
     fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    transition: 'background-color 0.2s',
   },
   section: {
     marginBottom: spacing['2xl'],

@@ -338,12 +338,9 @@ const EntryForm = ({
     setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
-  const handleFileSelect = async (e) => {
-    const selectedFiles = Array.from(e.target.files);
-    // Use setTimeout to prevent UI blocking during file processing
-    setTimeout(() => {
-      setFiles((prev) => [...prev, ...selectedFiles]);
-    }, 0);
+  // Handle files selected from native dialog (already has path and name)
+  const handleFileSelect = (selectedFiles) => {
+    setFiles((prev) => [...prev, ...selectedFiles]);
   };
 
   const updateAssetCaption = async (assetId, caption) => {

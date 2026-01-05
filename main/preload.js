@@ -47,6 +47,8 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   updateEntry: (data) => ipcRenderer.invoke('update-wiki-entry', data),
   deleteEntry: (entryId) => ipcRenderer.invoke('delete-wiki-entry', entryId),
   restoreEntry: (entryId) => ipcRenderer.invoke('restore-wiki-entry', entryId),
+  // File Selection
+  selectFiles: () => ipcRenderer.invoke('select-files'),
   // Multiple Assets Management
   addEntryAssets: (data) => ipcRenderer.invoke('add-entry-assets', data),
   getEntryAssets: (entryId) => ipcRenderer.invoke('get-entry-assets', entryId),

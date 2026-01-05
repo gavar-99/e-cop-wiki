@@ -103,6 +103,15 @@ const createEntry = async ({
   eventDate = null,
 }) => {
   try {
+    // Check if an entry with this title already exists
+    const existingEntry = await entryRepository.findByTitle(title);
+    if (existingEntry) {
+      return {
+        success: false,
+        message: `An article with the title "${title}" already exists. Please use a different title or edit the existing article.`,
+      };
+    }
+
     // Filter out tags that are already represented in the title
     // Logic: If the title contains the tag as a whole word, we assume this entry covers the topic.
     // e.g. Title: "History of Mongolia", Tag: "Mongolia" -> No stub created.
