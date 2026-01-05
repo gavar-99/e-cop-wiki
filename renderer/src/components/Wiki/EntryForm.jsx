@@ -465,7 +465,6 @@ const EntryForm = ({
             onRemoveExisting={handleRemoveExistingAsset}
             onRemoveNew={handleRemoveNewFile}
             onUpdateCaption={updateAssetCaption}
-            onCapture={handleCapture}
           />
 
           {/* Submit */}
