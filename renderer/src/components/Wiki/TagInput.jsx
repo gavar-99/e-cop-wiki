@@ -21,9 +21,8 @@ const TagInput = ({ tags = [], onChange }) => {
     // Filter suggestions based on input
     if (inputValue.trim()) {
       const filtered = allTags
-        .filter(t =>
-          t.name.toLowerCase().includes(inputValue.toLowerCase()) &&
-          !tags.includes(t.name)
+        .filter(
+          (t) => t.name.toLowerCase().includes(inputValue.toLowerCase()) && !tags.includes(t.name)
         )
         .slice(0, 5);
       setSuggestions(filtered);
@@ -43,7 +42,7 @@ const TagInput = ({ tags = [], onChange }) => {
       setShowSuggestions(false);
 
       // Check if this is a new tag
-      const isNewTag = !allTags.find(t => t.name.toLowerCase() === normalized.toLowerCase());
+      const isNewTag = !allTags.find((t) => t.name.toLowerCase() === normalized.toLowerCase());
       if (isNewTag) {
         console.log(`✨ Creating new tag: "${normalized}"`);
       }
@@ -51,7 +50,7 @@ const TagInput = ({ tags = [], onChange }) => {
   };
 
   const removeTag = (tagToRemove) => {
-    onChange(tags.filter(tag => tag !== tagToRemove));
+    onChange(tags.filter((tag) => tag !== tagToRemove));
   };
 
   const handleKeyDown = (e) => {
@@ -66,10 +65,10 @@ const TagInput = ({ tags = [], onChange }) => {
       removeTag(tags[tags.length - 1]);
     } else if (e.key === 'ArrowDown') {
       e.preventDefault();
-      setSelectedIndex(prev => Math.min(prev + 1, suggestions.length - 1));
+      setSelectedIndex((prev) => Math.min(prev + 1, suggestions.length - 1));
     } else if (e.key === 'ArrowUp') {
       e.preventDefault();
-      setSelectedIndex(prev => Math.max(prev - 1, 0));
+      setSelectedIndex((prev) => Math.max(prev - 1, 0));
     } else if (e.key === 'Escape') {
       setShowSuggestions(false);
     } else if (e.key === ',') {
@@ -86,11 +85,7 @@ const TagInput = ({ tags = [], onChange }) => {
         {tags.map((tag, index) => (
           <div key={index} style={chipStyle}>
             <span>{tag}</span>
-            <button
-              onClick={() => removeTag(tag)}
-              style={removeButtonStyle}
-              type="button"
-            >
+            <button onClick={() => removeTag(tag)} style={removeButtonStyle} type="button">
               ×
             </button>
           </div>
@@ -102,7 +97,7 @@ const TagInput = ({ tags = [], onChange }) => {
           onChange={(e) => setInputValue(e.target.value)}
           onKeyDown={handleKeyDown}
           onFocus={() => inputValue && setShowSuggestions(suggestions.length > 0)}
-          placeholder={tags.length === 0 ? "Add tags (e.g., WW2, Joe Biden, Military)..." : ""}
+          placeholder={tags.length === 0 ? 'Add tags (e.g., WW2, Joe Biden, Military)...' : ''}
           style={inputStyle}
         />
       </div>
@@ -116,7 +111,7 @@ const TagInput = ({ tags = [], onChange }) => {
               onMouseEnter={() => setSelectedIndex(index)}
               style={{
                 ...suggestionItemStyle,
-                backgroundColor: index === selectedIndex ? '#e3f2fd' : '#fff'
+                backgroundColor: index === selectedIndex ? '#e3f2fd' : '#fff',
               }}
             >
               <span style={{ fontWeight: 'bold' }}>{suggestion.name}</span>
@@ -129,7 +124,8 @@ const TagInput = ({ tags = [], onChange }) => {
       )}
 
       <div style={{ fontSize: '0.8em', color: '#666', marginTop: '5px' }}>
-        Press <strong>Enter</strong> or <strong>comma</strong> to add tag. Multi-word tags are supported (e.g., "Joe Biden").
+        Press <strong>Enter</strong> or <strong>comma</strong> to add tag. Multi-word tags are
+        supported (e.g., "Joe Biden").
       </div>
     </div>
   );
@@ -140,70 +136,73 @@ const containerStyle = {
   display: 'flex',
   flexWrap: 'wrap',
   gap: '8px',
-  padding: '8px',
-  border: '1px solid #ccc',
-  borderRadius: '4px',
-  backgroundColor: '#fafafa',
-  minHeight: '42px',
+  padding: '10px 12px',
+  border: '1px solid #e1e4e8',
+  borderRadius: '8px',
+  backgroundColor: '#fafbfc',
+  minHeight: '46px',
   alignItems: 'center',
-  cursor: 'text'
+  cursor: 'text',
+  transition: 'border-color 0.2s, box-shadow 0.2s',
 };
 
 const chipStyle = {
   display: 'flex',
   alignItems: 'center',
   gap: '6px',
-  padding: '4px 10px',
-  backgroundColor: '#36c',
+  padding: '5px 12px',
+  backgroundColor: '#1565c0',
   color: '#fff',
-  borderRadius: '16px',
-  fontSize: '0.9em',
-  fontWeight: '500',
-  whiteSpace: 'nowrap'
+  borderRadius: '20px',
+  fontSize: '0.85em',
+  fontWeight: '600',
+  whiteSpace: 'nowrap',
+  boxShadow: '0 1px 3px rgba(21, 101, 192, 0.3)',
 };
 
 const removeButtonStyle = {
   background: 'none',
   border: 'none',
-  color: '#fff',
-  fontSize: '1.3em',
+  color: 'rgba(255,255,255,0.8)',
+  fontSize: '1.2em',
   cursor: 'pointer',
   padding: '0',
   lineHeight: '1',
   fontWeight: 'bold',
-  marginLeft: '2px'
+  marginLeft: '2px',
+  transition: 'color 0.15s',
 };
 
 const inputStyle = {
   border: 'none',
   outline: 'none',
   backgroundColor: 'transparent',
-  fontSize: '0.95em',
+  fontSize: '0.9em',
   flex: 1,
   minWidth: '150px',
-  padding: '4px'
+  padding: '4px',
+  color: '#202122',
 };
 
 const suggestionsContainerStyle = {
   position: 'absolute',
-  top: '100%',
+  top: 'calc(100% + 4px)',
   left: 0,
   right: 0,
   backgroundColor: '#fff',
-  border: '1px solid #ccc',
-  borderTop: 'none',
-  borderRadius: '0 0 4px 4px',
-  boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
+  border: '1px solid #e1e4e8',
+  borderRadius: '8px',
+  boxShadow: '0 8px 24px rgba(0,0,0,0.12)',
   zIndex: 1000,
   maxHeight: '200px',
-  overflowY: 'auto'
+  overflowY: 'auto',
 };
 
 const suggestionItemStyle = {
-  padding: '10px 12px',
+  padding: '12px 14px',
   cursor: 'pointer',
-  borderBottom: '1px solid #eee',
-  transition: 'background-color 0.15s'
+  borderBottom: '1px solid #f0f2f5',
+  transition: 'background-color 0.15s',
 };
 
 export default TagInput;

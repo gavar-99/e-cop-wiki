@@ -1,5 +1,5 @@
 import React from 'react';
-import { ChevronLeft, ChevronRight } from 'lucide-react';
+import { ChevronLeft, ChevronRight, PanelRightClose, PanelRight } from 'lucide-react';
 import { VIEWS, canEdit as checkCanEdit } from '../../constants';
 import { colors, typography, spacing, borderRadius, transitions } from '../../styles/theme';
 
@@ -12,6 +12,8 @@ const NavigationBar = ({
   canGoForward,
   onGoBack,
   onGoForward,
+  showAISidebar,
+  onToggleAISidebar,
 }) => {
   const canEdit = checkCanEdit(currentUser?.role);
 
@@ -42,18 +44,31 @@ const NavigationBar = ({
             </div>
           </div>
 
-          {/* User Status */}
-          <div style={styles.userStatus}>
-            <span style={styles.onlineIndicator}></span>
-            <strong>{currentUser?.username}</strong>
-            {currentUser?.username?.toLowerCase() !== currentUser?.role?.toLowerCase() && (
-              <>
-                <span style={{ color: colors.textLight }}>·</span>
-                <span style={roleBadgeStyle(currentUser?.role === 'admin')}>
-                  {currentUser?.role}
-                </span>
-              </>
-            )}
+          {/* Right Section: User Status + AI Toggle */}
+          <div style={styles.rightSection}>
+            {/* User Status */}
+            <div style={styles.userStatus}>
+              <span style={styles.onlineIndicator}></span>
+              <strong>{currentUser?.username}</strong>
+              {currentUser?.username?.toLowerCase() !== currentUser?.role?.toLowerCase() && (
+                <>
+                  <span style={{ color: colors.textLight }}>·</span>
+                  <span style={roleBadgeStyle(currentUser?.role === 'admin')}>
+                    {currentUser?.role}
+                  </span>
+                </>
+              )}
+            </div>
+
+            {/* AI Sidebar Toggle */}
+            <button
+              onClick={onToggleAISidebar}
+              title={showAISidebar ? 'Hide AI Analyst' : 'Show AI Analyst'}
+              style={styles.aiToggleButton}
+            >
+              {showAISidebar ? <PanelRightClose size={18} /> : <PanelRight size={18} />}
+              <span style={styles.aiToggleText}>AI</span>
+            </button>
           </div>
         </div>
 
@@ -147,6 +162,11 @@ const styles = {
     alignItems: 'center',
     gap: spacing['6xl'],
   },
+  rightSection: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.xl,
+  },
   logo: {
     fontFamily: 'Milker',
     fontSize: typography.fontSize['5xl'],
@@ -159,6 +179,24 @@ const styles = {
     display: 'flex',
     gap: spacing['3xl'],
     alignItems: 'center',
+  },
+  aiToggleButton: {
+    display: 'flex',
+    alignItems: 'center',
+    gap: spacing.sm,
+    padding: `${spacing.sm} ${spacing.lg}`,
+    backgroundColor: colors.primaryLight,
+    color: colors.primaryDark,
+    border: `1px solid ${colors.primary}`,
+    borderRadius: borderRadius.md,
+    cursor: 'pointer',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.semibold,
+    transition: `all ${transitions.fast}`,
+  },
+  aiToggleText: {
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.bold,
   },
   userStatus: {
     fontSize: typography.fontSize.sm,

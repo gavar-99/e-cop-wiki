@@ -203,20 +203,20 @@ const EntryForm = ({
     let processedTitle = title;
     const titleTags = [];
     const titleHashtagRegex = /#([\w_]+)/g;
-    
+
     // Find all hashtags in title
     const matches = [...processedTitle.matchAll(titleHashtagRegex)];
-    matches.forEach(match => {
+    matches.forEach((match) => {
       titleTags.push(match[1].replace(/_/g, ' '));
     });
 
     // Remove hashtags from title string for the final save
     // We replace #Tag with Tag (just remove the hash) to keep the word in the title
-    // OR we can remove the whole word if it's purely a tag container. 
+    // OR we can remove the whole word if it's purely a tag container.
     // User request: "it should be test with different color" -> implies keeping the text.
     // Let's remove the '#' symbol but keep the text.
     processedTitle = processedTitle.replace(/#([\w_]+)/g, '$1').trim();
-    
+
     // Merge title tags with existing tags (unique only)
     const finalTags = [...new Set([...tags, ...titleTags])];
 
@@ -490,23 +490,23 @@ const styles = {
   },
   formCard: {
     backgroundColor: colors.white,
-    border: `1px solid ${colors.borderMedium}`,
-    borderRadius: borderRadius.sm,
-    padding: spacing['6xl'],
+    border: `1px solid ${colors.border}`,
+    borderRadius: borderRadius.lg,
+    padding: spacing['5xl'],
     width: '100%',
     height: '100%',
-    boxShadow: shadows.md,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
     display: 'flex',
     flexDirection: 'column',
   },
   header: {
     fontFamily: typography.fontFamily.primary,
-    fontSize: typography.fontSize['4xl'],
-    margin: `0 0 ${spacing['3xl']} 0`,
-    color: colors.black,
-    borderBottom: `1px solid ${colors.borderMedium}`,
-    paddingBottom: spacing.lg,
-    fontWeight: typography.fontWeight.normal,
+    fontSize: typography.fontSize['3xl'],
+    margin: `0 0 ${spacing['2xl']} 0`,
+    color: colors.text,
+    borderBottom: 'none',
+    paddingBottom: spacing.md,
+    fontWeight: typography.fontWeight.medium,
   },
   form: {
     display: 'flex',
@@ -514,35 +514,36 @@ const styles = {
     flex: 1,
   },
   fieldGroup: {
-    marginBottom: spacing['3xl'],
+    marginBottom: spacing['2xl'],
     position: 'relative',
   },
   label: {
     display: 'block',
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     textTransform: 'uppercase',
     color: colors.textMuted,
     fontWeight: typography.fontWeight.bold,
     marginBottom: spacing.md,
-    letterSpacing: '0.5px',
+    letterSpacing: '1px',
   },
   hint: {
-    fontSize: '0.8em',
-    color: colors.textMuted,
+    fontSize: '0.85em',
+    color: colors.textLight,
     marginLeft: spacing.md,
     fontWeight: typography.fontWeight.normal,
     textTransform: 'none',
   },
   titleInput: {
     width: '100%',
-    padding: `${spacing.lg} 0`,
+    padding: `${spacing.xl} ${spacing.lg}`,
     fontSize: typography.fontSize.xl,
     fontFamily: typography.fontFamily.primary,
-    border: 'none',
-    borderBottom: `1px solid ${colors.borderDark}`,
+    border: `1px solid ${colors.border}`,
+    borderRadius: borderRadius.md,
     outline: 'none',
-    backgroundColor: 'transparent',
-    color: colors.black,
+    backgroundColor: colors.white,
+    color: colors.text,
+    transition: 'border-color 0.2s, box-shadow 0.2s',
   },
   tagsHeader: {
     display: 'flex',
@@ -551,17 +552,18 @@ const styles = {
     marginBottom: spacing.md,
   },
   scanButton: {
-    padding: `${spacing.sm} ${spacing.xl}`,
+    padding: `${spacing.md} ${spacing['2xl']}`,
     backgroundColor: colors.primary,
     color: colors.white,
     border: 'none',
     borderRadius: borderRadius.md,
     cursor: 'pointer',
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.semibold,
+    transition: 'background-color 0.2s',
   },
   writeTab: {
-    marginBottom: spacing['3xl'],
+    marginBottom: spacing['2xl'],
     flex: 1,
     display: 'flex',
     flexDirection: 'column',
@@ -571,34 +573,41 @@ const styles = {
     display: 'flex',
     justifyContent: 'space-between',
     alignItems: 'center',
+    marginBottom: spacing.md,
   },
   textarea: {
     width: '100%',
     height: '100%',
+    minHeight: '300px',
     padding: spacing['2xl'],
     fontFamily: typography.fontFamily.monospace,
-    border: `1px solid ${colors.borderLight}`,
-    borderRadius: borderRadius.md,
+    border: `1px solid ${colors.border}`,
+    borderRadius: borderRadius.lg,
     fontSize: typography.fontSize.sm,
-    lineHeight: typography.lineHeight.normal,
+    lineHeight: typography.lineHeight.relaxed,
     resize: 'none',
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: '#fafbfc',
+    outline: 'none',
+    transition: 'border-color 0.2s, box-shadow 0.2s',
   },
   previewBox: {
     flex: 1,
-    padding: spacing['5xl'],
-    border: `1px solid ${colors.borderLight}`,
+    padding: spacing['4xl'],
+    border: `1px solid ${colors.border}`,
+    borderRadius: borderRadius.lg,
     backgroundColor: colors.white,
     color: colors.text,
     display: 'flex',
     flexDirection: 'column',
     userSelect: 'text',
     cursor: 'text',
+    minHeight: '300px',
   },
   previewTitle: {
     fontFamily: typography.fontFamily.primary,
     fontSize: '1.8em',
     marginBottom: spacing['2xl'],
+    color: colors.text,
   },
   previewTags: {
     display: 'flex',
@@ -607,12 +616,13 @@ const styles = {
     flexWrap: 'wrap',
   },
   previewTag: {
-    padding: `${spacing.xs} ${spacing.lg}`,
-    backgroundColor: colors.primaryLight,
-    color: colors.primaryDark,
+    padding: `${spacing.sm} ${spacing.xl}`,
+    backgroundColor: 'rgba(255, 193, 7, 0.25)',
+    color: '#b8860b',
     borderRadius: borderRadius['2xl'],
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.semibold,
+    border: '1px solid rgba(255, 193, 7, 0.4)',
   },
   previewContent: {
     whiteSpace: 'pre-wrap',
@@ -620,23 +630,25 @@ const styles = {
     lineHeight: typography.lineHeight.relaxed,
     flex: 1,
     overflowY: 'auto',
+    color: colors.textSecondary,
   },
   submitRow: {
     marginTop: 'auto',
     display: 'flex',
     justifyContent: 'flex-end',
-    paddingTop: spacing['3xl'],
+    paddingTop: spacing['2xl'],
   },
   submitButton: {
     padding: `${spacing.xl} ${spacing['4xl']}`,
     backgroundColor: colors.primary,
     color: colors.white,
     border: 'none',
-    borderRadius: borderRadius.md,
+    borderRadius: borderRadius.lg,
     cursor: 'pointer',
     fontWeight: typography.fontWeight.bold,
     fontSize: typography.fontSize.base,
-    boxShadow: shadows.sm,
+    boxShadow: '0 2px 8px rgba(51, 102, 204, 0.3)',
+    transition: 'background-color 0.2s, transform 0.1s',
   },
 };
 

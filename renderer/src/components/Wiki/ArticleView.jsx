@@ -179,18 +179,18 @@ const ArticleView = ({
               key={index}
               onClick={() => onNavigate(tag)}
               style={{
-                padding: '5px 12px',
-                backgroundColor: '#e3f2fd',
-                color: '#1565c0',
-                borderRadius: '16px',
+                padding: '6px 14px',
+                backgroundColor: 'rgba(255, 193, 7, 0.2)',
+                color: '#b8860b',
+                borderRadius: '20px',
                 fontSize: '0.85em',
-                fontWeight: '500',
+                fontWeight: '600',
                 cursor: 'pointer',
-                border: '1px solid #90caf9',
+                border: '1px solid rgba(255, 193, 7, 0.4)',
                 transition: 'background-color 0.2s',
               }}
-              onMouseEnter={(e) => (e.target.style.backgroundColor = '#bbdefb')}
-              onMouseLeave={(e) => (e.target.style.backgroundColor = '#e3f2fd')}
+              onMouseEnter={(e) => (e.target.style.backgroundColor = 'rgba(255, 193, 7, 0.35)')}
+              onMouseLeave={(e) => (e.target.style.backgroundColor = 'rgba(255, 193, 7, 0.2)')}
             >
               {tag}
             </span>

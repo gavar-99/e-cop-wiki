@@ -23,10 +23,7 @@ const HighlightsSection = ({ featured, onNavigate }) => {
     <section style={styles.section}>
       <h2 style={styles.title}>Highlights</h2>
       <div style={styles.card}>
-        <h1
-          style={styles.featuredTitle}
-          onClick={() => onNavigate(featured.title)}
-        >
+        <h1 style={styles.featuredTitle} onClick={() => onNavigate(featured.title)}>
           {featured.title}
         </h1>
         {featured.tags && featured.tags.length > 0 && (
@@ -56,26 +53,27 @@ const styles = {
   section: {
     marginBottom: spacing['6xl'],
     padding: spacing['4xl'],
-    backgroundColor: colors.backgroundSecondary,
+    backgroundColor: colors.white,
     border: `1px solid ${colors.border}`,
-    borderRadius: borderRadius.md,
-    boxShadow: shadows.md,
+    borderRadius: borderRadius.lg,
+    boxShadow: '0 4px 20px rgba(0, 0, 0, 0.08)',
   },
   title: {
     fontFamily: typography.fontFamily.secondary,
-    fontSize: typography.fontSize.sm,
+    fontSize: typography.fontSize.xs,
     color: colors.textMuted,
-    borderBottom: `2px solid ${colors.primary}`,
-    paddingBottom: spacing.lg,
-    marginBottom: spacing['3xl'],
+    borderBottom: 'none',
+    paddingBottom: spacing.md,
+    marginBottom: spacing['2xl'],
     textTransform: 'uppercase',
-    fontWeight: typography.fontWeight.semibold,
-    letterSpacing: '0.5px',
+    fontWeight: typography.fontWeight.bold,
+    letterSpacing: '1.5px',
   },
   card: {
-    backgroundColor: colors.white,
-    padding: spacing['3xl'],
-    borderRadius: borderRadius.md,
+    backgroundColor: colors.backgroundSecondary,
+    padding: spacing['4xl'],
+    borderRadius: borderRadius.lg,
+    border: `1px solid ${colors.borderLight}`,
   },
   featuredTitle: {
     fontFamily: typography.fontFamily.primary,
@@ -94,23 +92,24 @@ const styles = {
   tagBadge: {
     display: 'inline-flex',
     alignItems: 'center',
-    backgroundColor: colors.primaryLight,
-    color: colors.primaryDark,
-    padding: `${spacing.xs} ${spacing.lg}`,
+    backgroundColor: 'rgba(255, 193, 7, 0.25)',
+    color: '#b8860b',
+    padding: `${spacing.sm} ${spacing.xl}`,
     borderRadius: borderRadius['2xl'],
     fontSize: typography.fontSize.sm,
-    fontWeight: typography.fontWeight.medium,
+    fontWeight: typography.fontWeight.semibold,
+    border: '1px solid rgba(255, 193, 7, 0.4)',
   },
   excerpt: {
     fontSize: typography.fontSize.md,
     lineHeight: typography.lineHeight.relaxed,
-    color: colors.text,
+    color: colors.textSecondary,
     userSelect: 'text',
     cursor: 'text',
     marginBottom: spacing['2xl'],
   },
   readMoreButton: {
-    color: colors.link,
+    color: colors.primary,
     background: 'none',
     border: 'none',
     cursor: 'pointer',

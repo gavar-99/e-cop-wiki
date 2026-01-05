@@ -17,9 +17,7 @@ const SearchBar = ({ entries, onNavigate, minChars = UI.DASHBOARD_SEARCH_MIN_CHA
   };
 
   const handleSearch = async (query) => {
-    const exactMatch = entries.find(
-      (entry) => entry.title.toLowerCase() === query.toLowerCase()
-    );
+    const exactMatch = entries.find((entry) => entry.title.toLowerCase() === query.toLowerCase());
     if (exactMatch) {
       onNavigate(exactMatch.title);
     } else {
@@ -78,8 +76,7 @@ const SearchBar = ({ entries, onNavigate, minChars = UI.DASHBOARD_SEARCH_MIN_CHA
                 }}
                 style={{
                   ...styles.suggestionItem,
-                  backgroundColor:
-                    index === selectedIndex ? colors.backgroundHover : colors.white,
+                  backgroundColor: index === selectedIndex ? colors.backgroundHover : colors.white,
                 }}
                 onMouseEnter={() => setSelectedIndex(index)}
               >
@@ -112,26 +109,26 @@ const styles = {
   container: {
     display: 'flex',
     justifyContent: 'center',
-    marginBottom: spacing['6xl'],
+    marginBottom: spacing['5xl'],
   },
   wrapper: {
     position: 'relative',
     display: 'flex',
     alignItems: 'center',
     width: '100%',
-    maxWidth: '700px',
-    border: `1px solid ${colors.borderMedium}`,
+    maxWidth: '650px',
+    border: `1px solid ${colors.border}`,
     borderRadius: borderRadius.full,
-    padding: `${spacing.xl} ${spacing['3xl']}`,
+    padding: `${spacing.lg} ${spacing['3xl']}`,
     backgroundColor: colors.white,
-    boxShadow: shadows.xl,
+    boxShadow: '0 2px 12px rgba(0, 0, 0, 0.08)',
     transition: `border-color ${transitions.normal}, box-shadow ${transitions.normal}`,
   },
   input: {
     flex: 1,
     border: 'none',
     outline: 'none',
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.sm,
     backgroundColor: 'transparent',
     color: colors.text,
   },
@@ -142,23 +139,23 @@ const styles = {
     right: 0,
     backgroundColor: colors.white,
     border: `1px solid ${colors.border}`,
-    borderRadius: borderRadius['2xl'],
-    boxShadow: shadows['3xl'],
-    maxHeight: '450px',
+    borderRadius: borderRadius.lg,
+    boxShadow: '0 8px 30px rgba(0, 0, 0, 0.12)',
+    maxHeight: '400px',
     overflowY: 'auto',
     zIndex: 1000,
   },
   suggestionItem: {
-    padding: '14px 18px',
+    padding: `${spacing.xl} ${spacing['2xl']}`,
     cursor: 'pointer',
-    borderBottom: `1px solid ${colors.backgroundTertiary}`,
+    borderBottom: `1px solid ${colors.borderLight}`,
     transition: `background-color ${transitions.fast}`,
   },
   suggestionTitle: {
     fontWeight: typography.fontWeight.semibold,
-    color: colors.link,
+    color: colors.primary,
     marginBottom: spacing.xs,
-    fontSize: typography.fontSize.md,
+    fontSize: typography.fontSize.base,
   },
   suggestionSnippet: {
     fontSize: typography.fontSize.sm,
@@ -174,11 +171,12 @@ const styles = {
   tag: {
     display: 'inline-flex',
     alignItems: 'center',
-    fontSize: '0.8em',
-    padding: `3px ${spacing.md}`,
-    backgroundColor: colors.primaryLight,
-    color: colors.primaryDark,
+    fontSize: '0.75em',
+    padding: `2px ${spacing.md}`,
+    backgroundColor: 'rgba(255, 193, 7, 0.2)',
+    color: '#b8860b',
     borderRadius: borderRadius['2xl'],
+    fontWeight: typography.fontWeight.medium,
   },
 };
 

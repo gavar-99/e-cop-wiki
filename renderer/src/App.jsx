@@ -27,6 +27,7 @@ const App = () => {
   const [settingsInitialTab, setSettingsInitialTab] = useState(SETTINGS_TABS.DATABASE);
   const [draftTitle, setDraftTitle] = useState('');
   const [editingEntry, setEditingEntry] = useState(null);
+  const [showAISidebar, setShowAISidebar] = useState(true);
 
   // Custom hooks
   const {
@@ -220,6 +221,8 @@ const App = () => {
             canGoForward={canGoForward}
             onGoBack={goBack}
             onGoForward={goForward}
+            showAISidebar={showAISidebar}
+            onToggleAISidebar={() => setShowAISidebar(!showAISidebar)}
           />
 
           <div style={styles.contentArea}>
@@ -256,12 +259,14 @@ const App = () => {
           </div>
         </main>
 
-        <ResizablePanel width={sidebarWidth} onStartResize={startResizing}>
-          <GeminiSidebar
-            contextEntries={pinnedEntries}
-            onClearContext={() => setPinnedEntries([])}
-          />
-        </ResizablePanel>
+        {showAISidebar && (
+          <ResizablePanel width={sidebarWidth} onStartResize={startResizing}>
+            <GeminiSidebar
+              contextEntries={pinnedEntries}
+              onClearContext={() => setPinnedEntries([])}
+            />
+          </ResizablePanel>
+        )}
       </div>
     </div>
   );
