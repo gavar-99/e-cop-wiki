@@ -41,9 +41,9 @@ function createMenu() {
         { type: 'separator' },
         { role: 'resetZoom' },
         { role: 'zoomIn' },
-        { role: 'zoomOut' }
-      ]
-    }
+        { role: 'zoomOut' },
+      ],
+    },
   ];
 
   const menu = Menu.buildFromTemplate(template);
@@ -54,10 +54,15 @@ function createMenu() {
  * Create the main application window
  */
 function createWindow() {
+  // In production, icon is next to the exe; in dev, it's in project root
+  const iconPath = app.isPackaged
+    ? path.join(path.dirname(app.getPath('exe')), 'assets', 'images', 'app-main-logo.png')
+    : path.join(__dirname, '../assets/images/app-main-logo.png');
+
   mainWindow = new BrowserWindow({
     width: 1200,
     height: 800,
-    icon: path.join(__dirname, '../assets/images/logo.png'),
+    icon: iconPath,
     frame: false,
     webPreferences: {
       nodeIntegration: false,
@@ -98,16 +103,16 @@ app.whenReady().then(async () => {
   // Handle the custom protocol for wiki assets
   protocol.handle('wiki-asset', (request) => {
     let fileName = request.url.replace('wiki-asset://', '');
-    
+
     // Remove trailing slash if present
     if (fileName.endsWith('/')) {
       fileName = fileName.slice(0, -1);
     }
-    
+
     // Remove query parameters/hashes if present
     const cleanName = decodeURIComponent(fileName.split(/[?#]/)[0]);
     const absolutePath = path.join(assetDir, cleanName);
-    
+
     return net.fetch(url.pathToFileURL(absolutePath).toString());
   });
 

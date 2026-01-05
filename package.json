@@ -19,10 +19,26 @@
     "appId": "com.ecop.wiki",
     "productName": "E-Cop Wiki",
     "directories": {
-      "output": "dist"
+      "output": "release"
     },
+    "files": [
+      "dist/**/*",
+      "main/**/*",
+      "package.json"
+    ],
     "win": {
-      "target": "nsis"
+      "target": "nsis",
+      "icon": "build/icons/icon.ico",
+      "signAndEditExecutable": false
+    },
+    "nsis": {
+      "oneClick": false,
+      "allowToChangeInstallationDirectory": true,
+      "installerIcon": "build/icons/icon.ico",
+      "uninstallerIcon": "build/icons/icon.ico",
+      "createDesktopShortcut": true,
+      "createStartMenuShortcut": true,
+      "shortcutName": "E-Cop Wiki"
     },
     "extraFiles": [
       {
@@ -56,9 +72,13 @@
     "@vitejs/plugin-react": "^5.1.2",
     "electron": "^39.2.7",
     "electron-builder": "^26.0.12",
+    "electron-icon-builder": "^2.0.1",
     "eslint-config-prettier": "^10.1.8",
     "eslint-plugin-prettier": "^5.5.4",
+    "png-to-ico": "^3.0.1",
     "prettier": "^3.7.4",
+    "rcedit": "^5.0.2",
+    "sharp": "^0.34.5",
     "vite": "^7.3.0"
   }
 }

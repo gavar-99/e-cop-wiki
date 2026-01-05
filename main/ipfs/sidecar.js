@@ -5,7 +5,10 @@ const { app } = require('electron');
 class IPFSSidecar {
   constructor() {
     // Path to your bundled kubo binary
-    this.binary = path.join(app.getAppPath(), 'bin', 'kubo', 'ipfs.exe');
+    // In production, extraFiles are placed next to the app executable
+    // In development, they're in the project root
+    const basePath = app.isPackaged ? path.dirname(app.getPath('exe')) : app.getAppPath();
+    this.binary = path.join(basePath, 'bin', 'kubo', 'ipfs.exe');
     this.child = null;
   }
 
