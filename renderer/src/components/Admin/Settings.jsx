@@ -66,46 +66,146 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
 // About Tab Component
 const AboutTab = () => {
   return (
-    <div style={{ padding: '30px', textAlign: 'center' }}>
-      <h3
+    <div
+      style={{
+        padding: '40px',
+        textAlign: 'center',
+        backgroundColor: '#f8f9fa',
+        minHeight: '400px',
+        fontFamily: 'Arial, sans-serif',
+      }}
+    >
+      {/* Logo/Icon */}
+      <div
         style={{
-          fontFamily: "'Linux Libertine', Georgia, serif",
-          fontSize: '1.8em',
-          marginBottom: '20px',
+          width: '80px',
+          height: '80px',
+          margin: '0 auto 24px',
+          borderRadius: '20px',
+          background: 'linear-gradient(135deg, #3366cc 0%, #1a4ba3 100%)',
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'center',
+          boxShadow: '0 8px 24px rgba(51, 102, 204, 0.3)',
+        }}
+      >
+        <span style={{ fontSize: '2.5em', color: '#fff', fontWeight: 'bold' }}>E</span>
+      </div>
+
+      {/* App Name */}
+      <h2
+        style={{
+          fontSize: '2em',
+          fontWeight: '700',
+          color: '#202122',
+          margin: '0 0 8px 0',
+          letterSpacing: '-0.5px',
         }}
       >
         E-Cop Wiki
-      </h3>
-      <p style={{ fontSize: '1em', color: '#54595d', marginBottom: '10px' }}>Version 1.0.0</p>
+      </h2>
+
+      {/* Version Badge */}
+      <div
+        style={{
+          display: 'inline-block',
+          padding: '4px 12px',
+          backgroundColor: '#e8f0fe',
+          color: '#36c',
+          borderRadius: '20px',
+          fontSize: '0.85em',
+          fontWeight: '600',
+          marginBottom: '24px',
+        }}
+      >
+        Version 1.0.0
+      </div>
+
+      {/* Description */}
       <p
         style={{
-          fontSize: '0.95em',
-          color: '#72777d',
-          lineHeight: '1.6',
-          maxWidth: '500px',
-          margin: '20px auto',
+          fontSize: '1.05em',
+          color: '#54595d',
+          lineHeight: '1.7',
+          maxWidth: '450px',
+          margin: '0 auto 30px',
         }}
       >
         Secure, anti-censorship library for Mongolian political data.
-        <br />
-        <br />
-        Built with Electron, React, and MongoDB.
-        <br />
-        Powered by IPFS for decentralized storage.
       </p>
+
+      {/* Tech Stack */}
       <div
         style={{
-          marginTop: '30px',
-          padding: '20px',
-          backgroundColor: '#f8f9fa',
-          borderRadius: '4px',
-          border: '1px solid #e1e4e8',
+          display: 'flex',
+          justifyContent: 'center',
+          gap: '12px',
+          marginBottom: '30px',
+          flexWrap: 'wrap',
         }}
       >
-        <p style={{ fontSize: '0.85em', color: '#666', margin: 0 }}>
-          © 2024 E-Cop Team
-          <br />
-          Licensed under MIT License
+        {['Electron', 'React', 'MongoDB', 'IPFS'].map((tech) => (
+          <span
+            key={tech}
+            style={{
+              padding: '6px 14px',
+              backgroundColor: '#fff',
+              border: '1px solid #e1e4e8',
+              borderRadius: '6px',
+              fontSize: '0.85em',
+              color: '#54595d',
+              fontWeight: '500',
+            }}
+          >
+            {tech}
+          </span>
+        ))}
+      </div>
+
+      {/* Features */}
+      <div
+        style={{
+          display: 'grid',
+          gridTemplateColumns: 'repeat(3, 1fr)',
+          gap: '16px',
+          maxWidth: '500px',
+          margin: '0 auto 30px',
+        }}
+      >
+        {[
+          { icon: '🔒', label: 'Secure' },
+          { icon: '🌐', label: 'Decentralized' },
+          { icon: '📚', label: 'Open Source' },
+        ].map((item) => (
+          <div
+            key={item.label}
+            style={{
+              padding: '16px',
+              backgroundColor: '#fff',
+              borderRadius: '8px',
+              border: '1px solid #e1e4e8',
+            }}
+          >
+            <div style={{ fontSize: '1.5em', marginBottom: '6px' }}>{item.icon}</div>
+            <div style={{ fontSize: '0.85em', color: '#54595d', fontWeight: '500' }}>
+              {item.label}
+            </div>
+          </div>
+        ))}
+      </div>
+
+      {/* Footer */}
+      <div
+        style={{
+          padding: '16px 24px',
+          backgroundColor: '#fff',
+          borderRadius: '8px',
+          border: '1px solid #e1e4e8',
+          display: 'inline-block',
+        }}
+      >
+        <p style={{ fontSize: '0.85em', color: '#72777d', margin: 0 }}>
+          © 2024 E-Cop Team · MIT License
         </p>
       </div>
     </div>
