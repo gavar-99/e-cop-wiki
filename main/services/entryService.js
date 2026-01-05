@@ -62,14 +62,14 @@ const ensureTagArticles = async (tags, authorUsername) => {
         console.log(`Creating stub article for keyword: ${tagName}`);
         const stubTitle = tagName.charAt(0).toUpperCase() + tagName.slice(1);
         const stubContent = `This is a stub article for **${tagName}**. You can contribute by expanding it.`;
-        
+
         // Calculate master hash for the stub
         const masterHash = calculateEntryHash({
           title: stubTitle,
           content: stubContent,
           tags: [],
           assets: [],
-          infobox: []
+          infobox: [],
         });
 
         await entryRepository.create({
@@ -79,7 +79,7 @@ const ensureTagArticles = async (tags, authorUsername) => {
           authorUsername,
           tags: [],
           assets: [],
-          infobox: []
+          infobox: [],
         });
       }
     } catch (error) {
@@ -93,12 +93,20 @@ const ensureTagArticles = async (tags, authorUsername) => {
  * @param {Object} params - Entry data
  * @returns {Promise<Object>} Result with success status and entryId
  */
-const createEntry = async ({ title, content, tags = [], infobox = [], assets = [], authorUsername }) => {
+const createEntry = async ({
+  title,
+  content,
+  tags = [],
+  infobox = [],
+  assets = [],
+  authorUsername,
+  eventDate = null,
+}) => {
   try {
     // Filter out tags that are already represented in the title
     // Logic: If the title contains the tag as a whole word, we assume this entry covers the topic.
     // e.g. Title: "History of Mongolia", Tag: "Mongolia" -> No stub created.
-    const tagsNeedingStubs = tags.filter(tag => {
+    const tagsNeedingStubs = tags.filter((tag) => {
       // Escape regex special characters in tag
       const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const tagRegex = new RegExp(`\\b${escapedTag}\\b`, 'i');
@@ -121,7 +129,7 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
       content,
       tags,
       assets,
-      infobox
+      infobox,
     });
 
     const entry = await entryRepository.create({
@@ -129,6 +137,7 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
       content,
       sha256Hash: masterHash,
       authorUsername,
+      eventDate: eventDate ? new Date(eventDate) : null,
       tags: tagIds,
       assets: assets.map((a, idx) => ({
         assetPath: a.fileName,
@@ -158,7 +167,15 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
  * @param {Object} params - Update data
  * @returns {Promise<Object>} Result with success status
  */
-const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], removedAssetIds = [] }) => {
+const updateEntry = async ({
+  entryId,
+  title,
+  content,
+  tags = [],
+  infobox = [],
+  removedAssetIds = [],
+  eventDate = null,
+}) => {
   try {
     const entry = await entryRepository.findById(entryId);
     if (!entry) return { success: false, message: 'Entry not found' };
@@ -169,7 +186,7 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
     const authorUsername = entry.authorUsername || 'system';
 
     // Filter out tags that are already represented in the title
-    const tagsNeedingStubs = tags.filter(tag => {
+    const tagsNeedingStubs = tags.filter((tag) => {
       const escapedTag = tag.replace(/[.*+?^${}()|[\]\\]/g, '\\$&');
       const tagRegex = new RegExp(`\\b${escapedTag}\\b`, 'i');
       return !tagRegex.test(title);
@@ -187,13 +204,14 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
 
     // Remove specified assets
     if (removedAssetIds.length > 0) {
-      entry.assets = entry.assets.filter(a => !removedAssetIds.includes(a._id.toString()));
+      entry.assets = entry.assets.filter((a) => !removedAssetIds.includes(a._id.toString()));
     }
 
     // Update fields
     entry.title = title;
     entry.content = content;
     entry.tags = tagIds;
+    entry.eventDate = eventDate ? new Date(eventDate) : null;
     entry.infobox = infobox.map((f, idx) => ({
       fieldKey: f.key,
       fieldValue: f.value,
@@ -206,8 +224,8 @@ const updateEntry = async ({ entryId, title, content, tags = [], infobox = [], r
       title,
       content,
       tags,
-      assets: entry.assets.map(a => ({ hash: a.sha256Hash })),
-      infobox: entry.infobox.map(f => ({ key: f.fieldKey, value: f.fieldValue }))
+      assets: entry.assets.map((a) => ({ hash: a.sha256Hash })),
+      infobox: entry.infobox.map((f) => ({ key: f.fieldKey, value: f.fieldValue })),
     });
 
     await entry.save();
@@ -276,9 +294,9 @@ const addEntryAssets = async (entryId, assets) => {
     entry.sha256Hash = calculateEntryHash({
       title: entry.title,
       content: entry.content,
-      tags: tags.map(t => t.name),
-      assets: entry.assets.map(a => ({ hash: a.sha256Hash })),
-      infobox: entry.infobox.map(f => ({ key: f.fieldKey, value: f.fieldValue }))
+      tags: tags.map((t) => t.name),
+      assets: entry.assets.map((a) => ({ hash: a.sha256Hash })),
+      infobox: entry.infobox.map((f) => ({ key: f.fieldKey, value: f.fieldValue })),
     });
 
     await entry.save();
@@ -296,11 +314,11 @@ const addEntryAssets = async (entryId, assets) => {
 const getEntryAssets = async (entryId) => {
   try {
     const assets = await entryRepository.getAssets(entryId);
-    
+
     // Ensure assets exist locally (Read-Through Cache)
     const { ensureAssetLocal } = require('./assetService');
-    await Promise.all(assets.map(a => ensureAssetLocal(a.asset_path)));
-    
+    await Promise.all(assets.map((a) => ensureAssetLocal(a.asset_path)));
+
     return assets;
   } catch (error) {
     console.error('Error getting entry assets:', error);
@@ -382,5 +400,5 @@ module.exports = {
   updateAssetCaption,
   getEntryInfobox,
   searchEntries,
-  searchAutocomplete
+  searchAutocomplete,
 };

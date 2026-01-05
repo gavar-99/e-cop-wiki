@@ -15,6 +15,7 @@ const formatEntry = (entry) => ({
   sha256_hash: entry.sha256Hash,
   ipfs_cid: entry.ipfsCid,
   author_username: entry.authorUsername,
+  event_date: entry.eventDate,
   timestamp: entry.createdAt,
   created_at: entry.createdAt,
   updated_at: entry.updatedAt,
@@ -106,5 +107,5 @@ module.exports = {
   formatAsset,
   formatInfoboxField,
   formatActivityLog,
-  formatAutocompleteEntry
+  formatAutocompleteEntry,
 };

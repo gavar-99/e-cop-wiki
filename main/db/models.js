@@ -50,6 +50,7 @@ const entrySchema = new Schema({
   sha256Hash: { type: String, unique: true, sparse: true },
   ipfsCid: { type: String },
   authorUsername: { type: String },
+  eventDate: { type: Date, default: null }, // Date of the event/topic (for "On This Day" feature)
   tags: [{ type: Schema.Types.ObjectId, ref: 'Tag' }],
   assets: [assetSchema],
   infobox: [infoboxFieldSchema],

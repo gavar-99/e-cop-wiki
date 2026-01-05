@@ -18,6 +18,7 @@ const EntryForm = ({
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState('');
   const [tags, setTags] = useState([]);
+  const [eventDate, setEventDate] = useState(''); // Date for "On This Day" feature
   const [files, setFiles] = useState([]);
   const [existingAssets, setExistingAssets] = useState([]);
   const [removedAssetIds, setRemovedAssetIds] = useState([]);
@@ -52,6 +53,11 @@ const EntryForm = ({
     if (mode === ENTRY_FORM_MODES.EDIT && entry) {
       setTitle(entry.title || '');
       setContent(entry.content || '');
+      // Format eventDate for date input (YYYY-MM-DD)
+      if (entry.event_date) {
+        const date = new Date(entry.event_date);
+        setEventDate(date.toISOString().split('T')[0]);
+      }
 
       const loadEntryData = async () => {
         try {
@@ -227,6 +233,7 @@ const EntryForm = ({
           title: processedTitle,
           content,
           tags: finalTags,
+          eventDate: eventDate || null,
           infobox: infobox.map((item, index) => ({
             key: item.field_key || item.key,
             value: item.field_value || item.value,
@@ -269,6 +276,7 @@ const EntryForm = ({
           content,
           filePaths,
           tags: finalTags,
+          eventDate: eventDate || null,
           infobox: infobox.map((item, index) => ({
             key: item.key,
             value: item.value,
@@ -398,6 +406,22 @@ const EntryForm = ({
               </button>
             </div>
             <TagInput tags={tags} onChange={setTags} />
+          </div>
+
+          {/* Event Date - for "On This Day" feature */}
+          <div style={styles.fieldGroup}>
+            <label style={styles.label}>
+              Event Date
+              <span style={styles.hint}>
+                (Optional: When did this event occur? Used for "On This Day" feature)
+              </span>
+            </label>
+            <input
+              type="date"
+              value={eventDate}
+              onChange={(e) => setEventDate(e.target.value)}
+              style={styles.dateInput}
+            />
           </div>
 
           {/* Tab Content */}
@@ -543,6 +567,18 @@ const styles = {
     backgroundColor: colors.white,
     color: colors.text,
     transition: 'border-color 0.2s, box-shadow 0.2s',
+  },
+  dateInput: {
+    padding: `${spacing.lg} ${spacing.xl}`,
+    fontSize: typography.fontSize.base,
+    fontFamily: typography.fontFamily.secondary,
+    border: `1px solid ${colors.border}`,
+    borderRadius: borderRadius.md,
+    outline: 'none',
+    backgroundColor: colors.white,
+    color: colors.text,
+    cursor: 'pointer',
+    minWidth: '200px',
   },
   tagsHeader: {
     display: 'flex',

@@ -83,22 +83,60 @@ export const LatestEntries = ({ entries, onNavigate }) => (
 );
 
 export const OnThisDay = ({ entries, onNavigate }) => {
-  const dateLabel = new Date().toLocaleDateString('en-US', {
+  const today = new Date();
+  const dateLabel = today.toLocaleDateString('en-US', {
     month: 'long',
     day: 'numeric',
   });
 
+  // Calculate years ago for each entry (prefer eventDate over createdAt)
+  const entriesWithYearsAgo = entries.map((entry) => {
+    // Prefer event_date for "On This Day" display
+    const referenceDate = entry.event_date || entry.createdAt;
+    if (referenceDate) {
+      const entryDate = new Date(referenceDate);
+      const yearsAgo = today.getFullYear() - entryDate.getFullYear();
+      const eventYear = entryDate.getFullYear();
+      return { ...entry, yearsAgo, eventYear, hasEventDate: !!entry.event_date };
+    }
+    return { ...entry, yearsAgo: null, eventYear: null, hasEventDate: false };
+  });
+
   return (
-    <EntryList
-      entries={entries}
-      onNavigate={onNavigate}
-      title="On This Day"
-      icon={Calendar}
-      showDate={false}
-      showTags={false}
-      dateLabel={dateLabel}
-      excerptLength={100}
-    />
+    <section style={styles.sectionCard}>
+      <h3 style={styles.sectionHeader}>
+        <Calendar size={18} style={{ marginRight: spacing.md }} /> On This Day
+      </h3>
+      <p style={styles.dateLabel}>{dateLabel}</p>
+      <ul style={styles.list}>
+        {entriesWithYearsAgo.map((entry) => (
+          <li key={entry.id} style={styles.listItem}>
+            <a
+              href="#"
+              onClick={(evt) => {
+                evt.preventDefault();
+                onNavigate(entry.title);
+              }}
+              style={styles.link}
+              onMouseEnter={(e) => (e.target.style.textDecoration = 'underline')}
+              onMouseLeave={(e) => (e.target.style.textDecoration = 'none')}
+            >
+              {entry.title}
+            </a>
+            {entry.eventYear && (
+              <div style={styles.yearsAgo}>
+                {entry.eventYear}
+                {entry.yearsAgo > 0 &&
+                  ` (${entry.yearsAgo} year${entry.yearsAgo > 1 ? 's' : ''} ago)`}
+              </div>
+            )}
+            <div style={styles.excerpt}>
+              {entry.content ? entry.content.substring(0, 100) + '...' : ''}
+            </div>
+          </li>
+        ))}
+      </ul>
+    </section>
   );
 };
 
@@ -152,6 +190,13 @@ const styles = {
   meta: {
     fontSize: typography.fontSize.xs,
     color: colors.textMuted,
+    marginTop: spacing.xs,
+    marginBottom: spacing.sm,
+  },
+  yearsAgo: {
+    fontSize: typography.fontSize.xs,
+    color: colors.primary,
+    fontWeight: typography.fontWeight.semibold,
     marginTop: spacing.xs,
     marginBottom: spacing.sm,
   },

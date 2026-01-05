@@ -286,48 +286,151 @@ const ArticleView = ({
 
       {/* Infobox (Wikipedia-style) */}
       {infobox.length > 0 && (
-        <table
+        <div
           style={{
             float: 'right',
             marginLeft: '20px',
-            marginBottom: '10px',
+            marginBottom: '15px',
             border: '1px solid #a2a9b1',
             backgroundColor: '#f8f9fa',
-            width: '300px',
+            width: '320px',
             fontSize: '0.9em',
-            borderCollapse: 'collapse',
           }}
         >
-          <tbody>
-            {infobox.map((field, index) => (
-              <tr key={index} style={{ borderBottom: '1px solid #a2a9b1' }}>
-                <th
-                  style={{
-                    padding: '8px',
-                    backgroundColor: '#eaecf0',
-                    fontWeight: '600',
-                    textAlign: 'right',
-                    verticalAlign: 'top',
-                    width: '35%',
-                    color: '#202122',
-                    borderRight: '1px solid #a2a9b1',
-                  }}
-                >
-                  {field.field_key}
-                </th>
-                <td
-                  style={{
-                    padding: '8px',
-                    color: '#202122',
-                    verticalAlign: 'top',
-                  }}
-                >
-                  {field.field_value}
-                </td>
-              </tr>
-            ))}
-          </tbody>
-        </table>
+          {/* Infobox Title */}
+          <div
+            style={{
+              backgroundColor: '#cce0f5',
+              padding: '10px 12px',
+              textAlign: 'center',
+              fontWeight: '700',
+              fontSize: '1.15em',
+              color: '#202122',
+              borderBottom: '1px solid #a2a9b1',
+            }}
+          >
+            {entry.title}
+          </div>
+
+          {/* Infobox Image - show first image asset if available */}
+          {assets.length > 0 &&
+            (() => {
+              const imageAsset = assets.find((a) => {
+                const ext = a.asset_path.split('.').pop().toLowerCase();
+                return ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
+              });
+              if (imageAsset) {
+                return (
+                  <div
+                    style={{
+                      padding: '8px',
+                      textAlign: 'center',
+                      backgroundColor: '#f8f9fa',
+                      borderBottom: '1px solid #a2a9b1',
+                    }}
+                  >
+                    <img
+                      src={`wiki-asset://${imageAsset.asset_path}`}
+                      alt={entry.title}
+                      style={{
+                        maxWidth: '100%',
+                        maxHeight: '250px',
+                        objectFit: 'contain',
+                        border: '1px solid #c8ccd1',
+                      }}
+                    />
+                    {imageAsset.caption && (
+                      <div
+                        style={{
+                          fontSize: '0.85em',
+                          color: '#54595d',
+                          marginTop: '6px',
+                          fontStyle: 'italic',
+                        }}
+                      >
+                        {imageAsset.caption}
+                      </div>
+                    )}
+                  </div>
+                );
+              }
+              return null;
+            })()}
+
+          {/* Infobox Fields */}
+          <table
+            style={{
+              width: '100%',
+              borderCollapse: 'collapse',
+            }}
+          >
+            <tbody>
+              {/* Event Date - if available, show prominently */}
+              {entry.event_date && (
+                <tr style={{ borderBottom: '1px solid #a2a9b1' }}>
+                  <th
+                    style={{
+                      padding: '6px 10px',
+                      backgroundColor: '#eaecf0',
+                      fontWeight: '600',
+                      textAlign: 'left',
+                      verticalAlign: 'top',
+                      width: '35%',
+                      color: '#202122',
+                      borderRight: '1px solid #a2a9b1',
+                      fontSize: '0.95em',
+                    }}
+                  >
+                    Date
+                  </th>
+                  <td
+                    style={{
+                      padding: '6px 10px',
+                      color: '#202122',
+                      verticalAlign: 'top',
+                    }}
+                  >
+                    {new Date(entry.event_date).toLocaleDateString('en-US', {
+                      year: 'numeric',
+                      month: 'long',
+                      day: 'numeric',
+                    })}
+                  </td>
+                </tr>
+              )}
+
+              {/* Custom Infobox Fields */}
+              {infobox.map((field, index) => (
+                <tr key={index} style={{ borderBottom: '1px solid #a2a9b1' }}>
+                  <th
+                    style={{
+                      padding: '6px 10px',
+                      backgroundColor: '#eaecf0',
+                      fontWeight: '600',
+                      textAlign: 'left',
+                      verticalAlign: 'top',
+                      width: '35%',
+                      color: '#202122',
+                      borderRight: '1px solid #a2a9b1',
+                      fontSize: '0.95em',
+                    }}
+                  >
+                    {field.field_key}
+                  </th>
+                  <td
+                    style={{
+                      padding: '6px 10px',
+                      color: '#202122',
+                      verticalAlign: 'top',
+                    }}
+                  >
+                    {field.field_value}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
       )}
 
       {/* Main Content */}
