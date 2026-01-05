@@ -97,8 +97,17 @@ app.whenReady().then(async () => {
 
   // Handle the custom protocol for wiki assets
   protocol.handle('wiki-asset', (request) => {
-    const fileName = request.url.replace('wiki-asset://', '');
-    const absolutePath = path.join(assetDir, fileName);
+    let fileName = request.url.replace('wiki-asset://', '');
+    
+    // Remove trailing slash if present
+    if (fileName.endsWith('/')) {
+      fileName = fileName.slice(0, -1);
+    }
+    
+    // Remove query parameters/hashes if present
+    const cleanName = decodeURIComponent(fileName.split(/[?#]/)[0]);
+    const absolutePath = path.join(assetDir, cleanName);
+    
     return net.fetch(url.pathToFileURL(absolutePath).toString());
   });
 

@@ -65,6 +65,9 @@ const createEntry = async ({ title, content, tags = [], infobox = [], assets = [
       assets: assets.map((a, idx) => ({
         assetPath: a.fileName,
         sha256Hash: a.hash,
+        gridfsId: a.gridfsId,
+        mimeType: a.mimeType,
+        size: a.size,
         caption: '',
         displayOrder: idx,
       })),
@@ -177,6 +180,9 @@ const addEntryAssets = async (entryId, assets) => {
       entry.assets.push({
         assetPath: assets[i].fileName,
         sha256Hash: assets[i].hash,
+        gridfsId: assets[i].gridfsId,
+        mimeType: assets[i].mimeType,
+        size: assets[i].size,
         caption: '',
         displayOrder: startOrder + i,
       });
@@ -206,7 +212,13 @@ const addEntryAssets = async (entryId, assets) => {
  */
 const getEntryAssets = async (entryId) => {
   try {
-    return await entryRepository.getAssets(entryId);
+    const assets = await entryRepository.getAssets(entryId);
+    
+    // Ensure assets exist locally (Read-Through Cache)
+    const { ensureAssetLocal } = require('./assetService');
+    await Promise.all(assets.map(a => ensureAssetLocal(a.asset_path)));
+    
+    return assets;
   } catch (error) {
     console.error('Error getting entry assets:', error);
     return [];

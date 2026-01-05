@@ -31,8 +31,8 @@ const register = (ipcMain) => {
         try {
             const assetData = [];
             for (const filePath of filePaths) {
-                const { hash, fileName } = assetService.saveAssetWithHash(filePath);
-                assetData.push({ fileName, hash });
+                const assetResult = await assetService.saveAsset(filePath);
+                assetData.push(assetResult);
             }
 
             const session = getSession();
@@ -173,8 +173,8 @@ const register = (ipcMain) => {
         try {
             const assets = [];
             for (const filePath of filePaths) {
-                const { hash, fileName } = assetService.saveAssetWithHash(filePath);
-                assets.push({ fileName, hash });
+                const assetResult = await assetService.saveAsset(filePath);
+                assets.push(assetResult);
             }
 
             return await entryService.addEntryAssets(entryId, assets);

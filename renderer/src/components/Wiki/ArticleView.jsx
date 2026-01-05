@@ -289,37 +289,84 @@ const ArticleView = ({ entry, allEntries = [], onNavigate, onPinToAI, isPinned, 
             gap: '20px',
             marginTop: '15px'
           }}>
-            {assets.map((asset, index) => (
-              <div key={asset.id} style={{
-                border: '1px solid #a2a9b1',
-                borderRadius: '2px',
-                overflow: 'hidden',
-                backgroundColor: '#f8f9fa'
-              }}>
-                <img
-                  src={`wiki-asset://${asset.asset_path}`}
-                  alt={asset.caption || 'Evidence'}
-                  style={{
-                    width: '100%',
-                    height: 'auto',
-                    maxHeight: '300px',
-                    objectFit: 'cover',
-                    display: 'block'
-                  }}
-                />
-                {asset.caption && (
-                  <div style={{
-                    padding: '8px 12px',
-                    fontSize: '0.85em',
-                    color: '#54595d',
-                    lineHeight: '1.4',
-                    borderTop: '1px solid #a2a9b1'
-                  }}>
-                    {asset.caption}
-                  </div>
-                )}
-              </div>
-            ))}
+            {assets.map((asset, index) => {
+              const ext = asset.asset_path.split('.').pop().toLowerCase();
+              const isPdf = ext === 'pdf';
+              const isImage = ['jpg', 'jpeg', 'png', 'gif', 'webp', 'svg', 'bmp'].includes(ext);
+
+              return (
+                <div key={asset.id} style={{
+                  border: '1px solid #a2a9b1',
+                  borderRadius: '2px',
+                  overflow: 'hidden',
+                  backgroundColor: '#f8f9fa'
+                }}>
+                  {isImage ? (
+                    <img
+                      src={`wiki-asset://${asset.asset_path}`}
+                      alt={asset.caption || 'Evidence'}
+                      style={{
+                        width: '100%',
+                        height: 'auto',
+                        maxHeight: '300px',
+                        objectFit: 'cover',
+                        display: 'block',
+                        cursor: 'pointer'
+                      }}
+                      onClick={() => window.open(`wiki-asset://${asset.asset_path}`, '_blank')}
+                    />
+                  ) : isPdf ? (
+                    <div style={{ position: 'relative', height: '300px' }}>
+                      <embed
+                        src={`wiki-asset://${asset.asset_path}`}
+                        type="application/pdf"
+                        width="100%"
+                        height="100%"
+                      />
+                      <div 
+                         onClick={() => window.open(`wiki-asset://${asset.asset_path}`, '_blank')}
+                         style={{
+                           position: 'absolute',
+                           top: 0, left: 0, right: 0, height: '40px',
+                           background: 'linear-gradient(to bottom, rgba(0,0,0,0.1), transparent)',
+                           cursor: 'pointer'
+                         }}
+                         title="Click to open full PDF"
+                      />
+                    </div>
+                  ) : (
+                    <div style={{
+                      height: '150px',
+                      display: 'flex',
+                      flexDirection: 'column',
+                      alignItems: 'center',
+                      justifyContent: 'center',
+                      backgroundColor: '#eaecf0',
+                      cursor: 'pointer'
+                    }}
+                    onClick={() => window.open(`wiki-asset://${asset.asset_path}`, '_blank')}
+                    >
+                      <span style={{ fontSize: '3em' }}>📄</span>
+                      <span style={{ marginTop: '10px', fontSize: '0.9em', color: '#555' }}>
+                        {asset.asset_path.split(/[/\\]/).pop()}
+                      </span>
+                    </div>
+                  )}
+                  
+                  {asset.caption && (
+                    <div style={{
+                      padding: '8px 12px',
+                      fontSize: '0.85em',
+                      color: '#54595d',
+                      lineHeight: '1.4',
+                      borderTop: '1px solid #a2a9b1'
+                    }}>
+                      {asset.caption}
+                    </div>
+                  )}
+                </div>
+              );
+            })}
           </div>
         </div>
       )}

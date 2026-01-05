@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { colors, typography, spacing, borderRadius } from '../../styles/theme';
 
 const AttachmentsSection = ({
@@ -8,7 +8,24 @@ const AttachmentsSection = ({
   onRemoveExisting,
   onRemoveNew,
   onUpdateCaption,
+  onCapture, // New prop
 }) => {
+  const [snapshotUrl, setSnapshotUrl] = useState('');
+  const [isCapturing, setIsCapturing] = useState(false);
+
+  const handleCaptureClick = async () => {
+    if (!snapshotUrl) return;
+    setIsCapturing(true);
+    try {
+      await onCapture(snapshotUrl);
+      setSnapshotUrl(''); // Clear after success
+    } catch (e) {
+      console.error(e);
+    } finally {
+      setIsCapturing(false);
+    }
+  };
+
   return (
     <div style={styles.container}>
       <div style={styles.header}>
@@ -23,6 +40,32 @@ const AttachmentsSection = ({
           onChange={onFileSelect}
           style={styles.fileInput}
         />
+      </div>
+
+      {/* Web Snapshot Section */}
+      <div style={styles.snapshotSection}>
+        <label style={styles.miniLabel}>Web Snapshot (URL)</label>
+        <div style={styles.inputRow}>
+          <input
+            type="url"
+            placeholder="https://..."
+            value={snapshotUrl}
+            onChange={(e) => setSnapshotUrl(e.target.value)}
+            style={styles.urlInput}
+          />
+          <button
+            type="button"
+            onClick={handleCaptureClick}
+            disabled={isCapturing || !snapshotUrl}
+            style={{
+              ...styles.captureButton,
+              backgroundColor: isCapturing ? colors.textLight : colors.secondary,
+              cursor: isCapturing ? 'not-allowed' : 'pointer',
+            }}
+          >
+            {isCapturing ? 'Saving...' : 'Capture'}
+          </button>
+        </div>
       </div>
 
       {/* Existing Assets (Edit Mode) */}
@@ -112,6 +155,41 @@ const styles = {
   },
   fileInput: {
     fontSize: typography.fontSize.sm,
+  },
+  snapshotSection: {
+    marginBottom: spacing['2xl'],
+    padding: spacing.lg,
+    backgroundColor: colors.backgroundPrimary,
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: borderRadius.md,
+  },
+  miniLabel: {
+    display: 'block',
+    fontSize: typography.fontSize.xs,
+    fontWeight: typography.fontWeight.bold,
+    color: colors.textMuted,
+    marginBottom: spacing.sm,
+    textTransform: 'uppercase',
+  },
+  inputRow: {
+    display: 'flex',
+    gap: spacing.md,
+  },
+  urlInput: {
+    flex: 1,
+    padding: spacing.md,
+    fontSize: typography.fontSize.sm,
+    border: `1px solid ${colors.borderDark}`,
+    borderRadius: borderRadius.sm,
+    outline: 'none',
+  },
+  captureButton: {
+    padding: `${spacing.sm} ${spacing.xl}`,
+    color: colors.white,
+    border: 'none',
+    borderRadius: borderRadius.sm,
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
   },
   section: {
     marginBottom: spacing['2xl'],

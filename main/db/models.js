@@ -21,8 +21,12 @@ const tagSchema = new Schema({
 // Asset Sub-Schema (embedded in Entry)
 const assetSchema = new Schema(
   {
-    assetPath: { type: String, required: true },
+    assetPath: { type: String, required: true }, // Filename (hash.ext)
     sha256Hash: { type: String, required: true },
+    gridfsId: { type: Schema.Types.ObjectId }, // Reference to MongoDB GridFS file
+    ipfsCid: { type: String }, // IPFS Content Identifier
+    mimeType: { type: String },
+    size: { type: Number },
     caption: { type: String, default: '' },
     displayOrder: { type: Number, default: 0 },
   },

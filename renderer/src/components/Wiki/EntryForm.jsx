@@ -213,21 +213,29 @@ const EntryForm = ({
         }
 
         if (files.length > 0) {
-          const filePaths = files.map((f) => f.path);
-          const assetsResult = await window.wikiAPI.addEntryAssets({
-            entryId: entry.id,
-            filePaths,
-          });
+          const filePaths = files.map((f) => f.path).filter(Boolean);
+          
+          if (filePaths.length < files.length) {
+             console.warn('Some files were skipped due to missing paths');
+          }
 
-          if (!assetsResult.success) {
-            alert('Warning: Entry updated but failed to add new assets: ' + assetsResult.message);
+          if (filePaths.length > 0) {
+            const assetsResult = await window.wikiAPI.addEntryAssets({
+              entryId: entry.id,
+              filePaths,
+            });
+
+            if (!assetsResult.success) {
+              alert('Warning: Entry updated but failed to add new assets: ' + assetsResult.message);
+            }
           }
         }
 
         alert('Entry updated successfully!');
         onComplete();
       } else {
-        const filePaths = files.map((f) => f.path);
+        const filePaths = files.map((f) => f.path).filter(Boolean);
+        
         const result = await window.wikiAPI.saveEntry({
           title,
           content,
@@ -424,6 +432,7 @@ const EntryForm = ({
             onRemoveExisting={handleRemoveExistingAsset}
             onRemoveNew={handleRemoveNewFile}
             onUpdateCaption={updateAssetCaption}
+            onCapture={handleCapture}
           />
 
           {/* Submit */}

@@ -76,6 +76,7 @@ const updateConfig = (newConfig) => {
 // Connection state
 let isConnected = false;
 let connectionError = null;
+let gridfsBucket = null;
 
 // Connect to MongoDB
 const connect = async (forceReconnect = false) => {
@@ -105,6 +106,11 @@ const connect = async (forceReconnect = false) => {
       connectTimeoutMS: 10000,
     });
 
+    // Initialize GridFS Bucket
+    gridfsBucket = new mongoose.mongo.GridFSBucket(mongoose.connection.db, {
+      bucketName: 'assets'
+    });
+
     isConnected = true;
     connectionError = null;
     console.log('MongoDB connected successfully');
@@ -122,11 +128,15 @@ const disconnect = async () => {
   try {
     await mongoose.disconnect();
     isConnected = false;
+    gridfsBucket = null;
     return { success: true };
   } catch (error) {
     return { success: false, message: error.message };
   }
 };
+
+// Get GridFS Bucket
+const getGridFSBucket = () => gridfsBucket;
 
 // Get connection status
 const getStatus = () => ({
@@ -176,5 +186,6 @@ module.exports = {
   updateConfig,
   testConnection,
   assetDir,
-  userDataPath
+  userDataPath,
+  getGridFSBucket
 };
