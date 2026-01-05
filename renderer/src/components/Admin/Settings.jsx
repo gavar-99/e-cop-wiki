@@ -1,9 +1,9 @@
 import React from 'react';
 import UserManagement from './UserManagement';
-import DatabaseSettings from './DatabaseSettings';
+import DatabaseSettings from './DatabaseSettings/index';
 import ActivityLogs from './ActivityLogs';
 import KeywordsManagement from './KeywordsManagement';
-import AppearancesSettings from './AppearancesSettings';
+import AppearancesSettings from './AppearancesSettings/index';
 import ProfileSettings from './ProfileSettings';
 
 const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {

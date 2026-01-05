@@ -1,17 +1,28 @@
 import React, { useState, useRef, useEffect } from 'react';
 import TagInput from './TagInput';
+import FormTabs from './FormTabs';
+import HashtagDropdown from './HashtagDropdown';
+import InfoboxEditor from './InfoboxEditor';
+import AttachmentsSection from './AttachmentsSection';
+import WebSnapshotTab from './WebSnapshotTab';
+import { ENTRY_FORM_TABS, ENTRY_FORM_MODES, DEBOUNCE } from '../../constants';
+import { colors, typography, spacing, borderRadius, shadows } from '../../styles/theme';
 
-const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = null, userRole = 'reader' }) => {
+const EntryForm = ({
+  onComplete,
+  initialTitle = '',
+  mode = ENTRY_FORM_MODES.CREATE,
+  entry = null,
+}) => {
+  // Form state
   const [title, setTitle] = useState(initialTitle);
   const [content, setContent] = useState('');
   const [tags, setTags] = useState([]);
-  const [files, setFiles] = useState([]); // Changed from single file to array
-  const [existingAssets, setExistingAssets] = useState([]); // Assets already saved (edit mode)
-  const [removedAssetIds, setRemovedAssetIds] = useState([]); // Track removed assets
-  const [infobox, setInfobox] = useState([]); // Array of {key, value}
-  const [activeTab, setActiveTab] = useState('write'); // 'write', 'preview', 'snapshot', 'infobox'
-  const [snapshotUrl, setSnapshotUrl] = useState('');
-  const [isCapturing, setIsCapturing] = useState(false);
+  const [files, setFiles] = useState([]);
+  const [existingAssets, setExistingAssets] = useState([]);
+  const [removedAssetIds, setRemovedAssetIds] = useState([]);
+  const [infobox, setInfobox] = useState([]);
+  const [activeTab, setActiveTab] = useState(ENTRY_FORM_TABS.WRITE);
 
   // Hashtag autocomplete state
   const [showHashtagSuggestions, setShowHashtagSuggestions] = useState(false);
@@ -20,11 +31,10 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
   const [hashtagPosition, setHashtagPosition] = useState({ top: 0, left: 0 });
   const [selectedHashtagIndex, setSelectedHashtagIndex] = useState(0);
   const [allTags, setAllTags] = useState([]);
-  const [activeField, setActiveField] = useState(''); // 'title' or 'content'
+  const [activeField, setActiveField] = useState('');
 
-  // Debounce ref for hashtag search
+  // Refs
   const hashtagDebounceRef = useRef(null);
-
   const textareaRef = useRef(null);
   const titleInputRef = useRef(null);
 
@@ -39,22 +49,18 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
 
   // Load existing entry data in edit mode
   useEffect(() => {
-    if (mode === 'edit' && entry) {
+    if (mode === ENTRY_FORM_MODES.EDIT && entry) {
       setTitle(entry.title || '');
       setContent(entry.content || '');
 
-      // Load tags
       const loadEntryData = async () => {
         try {
-          // Load tags
           const entryTags = await window.wikiAPI.getEntryTags(entry.id);
-          setTags(entryTags.map(t => t.tag_name));
+          setTags(entryTags.map((t) => t.tag_name));
 
-          // Load existing assets
           const assets = await window.wikiAPI.getEntryAssets(entry.id);
           setExistingAssets(assets || []);
 
-          // Load infobox
           const infoboxData = await window.wikiAPI.getEntryInfobox(entry.id);
           setInfobox(infoboxData || []);
         } catch (error) {
@@ -66,7 +72,7 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     }
   }, [mode, entry]);
 
-  // Generic hashtag detection handler with debouncing
+  // Hashtag detection
   const detectHashtag = (text, cursorPos, field) => {
     const textBeforeCursor = text.substring(0, cursorPos);
     const hashtagMatch = textBeforeCursor.match(/#([\w_]*)$/);
@@ -76,37 +82,26 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
       setHashtagQuery(query);
       setActiveField(field);
 
-      // Clear previous debounce timer
       if (hashtagDebounceRef.current) {
         clearTimeout(hashtagDebounceRef.current);
       }
 
-      // Debounce the search
       hashtagDebounceRef.current = setTimeout(() => {
-        // Filter tags that match the query
         const filtered = allTags
-          .filter(t => t.name.toLowerCase().startsWith(query.toLowerCase()))
+          .filter((t) => t.name.toLowerCase().startsWith(query.toLowerCase()))
           .slice(0, 5);
 
         setHashtagSuggestions(filtered);
         setShowHashtagSuggestions(filtered.length > 0);
         setSelectedHashtagIndex(0);
-      }, 300);
+      }, DEBOUNCE.HASHTAG);
 
-      // Calculate position for dropdown
-      if (field === 'content') {
-        const textarea = textareaRef.current;
-        if (textarea) {
-          const lines = textBeforeCursor.split('\n');
-          const currentLine = lines.length;
-          const lineHeight = 20;
-          setHashtagPosition({
-            top: currentLine * lineHeight,
-            left: 20
-          });
-        }
+      if (field === 'content' && textareaRef.current) {
+        const lines = textBeforeCursor.split('\n');
+        const currentLine = lines.length;
+        const lineHeight = 20;
+        setHashtagPosition({ top: currentLine * lineHeight, left: 20 });
       } else {
-        // For title field, position dropdown below input
         setHashtagPosition({ top: 0, left: 0 });
       }
     } else {
@@ -117,31 +112,27 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     }
   };
 
-  // Handle title field changes
+  // Handlers
   const handleTitleChange = (e) => {
     const newTitle = e.target.value;
     setTitle(newTitle);
-    const cursorPos = e.target.selectionStart;
-    detectHashtag(newTitle, cursorPos, 'title');
+    detectHashtag(newTitle, e.target.selectionStart, 'title');
   };
 
-  // Detect hashtag as user types in content
   const handleContentChange = (e) => {
     const newContent = e.target.value;
     setContent(newContent);
-    const cursorPos = e.target.selectionStart;
-    detectHashtag(newContent, cursorPos, 'content');
+    detectHashtag(newContent, e.target.selectionStart, 'content');
   };
 
-  // Handle keyboard events - works for both title and content
   const handleKeyDown = (e) => {
     if (showHashtagSuggestions) {
       if (e.key === 'ArrowDown') {
         e.preventDefault();
-        setSelectedHashtagIndex(prev => Math.min(prev + 1, hashtagSuggestions.length - 1));
+        setSelectedHashtagIndex((prev) => Math.min(prev + 1, hashtagSuggestions.length - 1));
       } else if (e.key === 'ArrowUp') {
         e.preventDefault();
-        setSelectedHashtagIndex(prev => Math.max(prev - 1, 0));
+        setSelectedHashtagIndex((prev) => Math.max(prev - 1, 0));
       } else if (e.key === 'Enter' && hashtagSuggestions.length > 0) {
         e.preventDefault();
         insertHashtag(hashtagSuggestions[selectedHashtagIndex].name);
@@ -151,7 +142,6 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     }
   };
 
-  // Insert selected hashtag
   const insertHashtag = (tagName) => {
     const isTitle = activeField === 'title';
     const inputRef = isTitle ? titleInputRef : textareaRef;
@@ -162,16 +152,13 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     const textBefore = currentText.substring(0, cursorPos);
     const textAfter = currentText.substring(cursorPos);
 
-    // Find the # position
     const hashPos = textBefore.lastIndexOf('#');
-    // Replace spaces with underscores for hashtag format
     const hashtagFormat = tagName.replace(/ /g, '_');
     const newText = textBefore.substring(0, hashPos + 1) + hashtagFormat + textAfter;
 
     setText(newText);
     setShowHashtagSuggestions(false);
 
-    // Set cursor position after the inserted tag
     setTimeout(() => {
       const newPos = hashPos + 1 + hashtagFormat.length;
       inputRef.current.selectionStart = newPos;
@@ -180,31 +167,25 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     }, 0);
   };
 
-  // Manual hashtag extraction function
   const scanHashtags = () => {
-    // Match hashtags (supports underscores for multi-word tags like #Joe_Biden)
-    // Matches #word or #word_word followed by whitespace, punctuation, or end of string
     const hashtagRegex = /#([\w_]+)(?=\s|$|[^\w_])/g;
     const matches = [...content.matchAll(hashtagRegex)];
+    const extractedTags = matches.map((match) => match[1].replace(/_/g, ' '));
 
-    // Clean tags: remove # and replace underscores with spaces
-    const extractedTags = matches.map(match => match[1].replace(/_/g, ' '));
-
-    // Add extracted tags that aren't already in the tags list
     let newTagsCount = 0;
-    extractedTags.forEach(tag => {
+    extractedTags.forEach((tag) => {
       if (!tags.includes(tag)) {
-        setTags(prev => [...prev, tag]);
+        setTags((prev) => [...prev, tag]);
         newTagsCount++;
       }
     });
 
     if (newTagsCount > 0) {
-      alert(`✅ Found ${newTagsCount} new hashtag(s) in your content!`);
+      alert(`Found ${newTagsCount} new hashtag(s) in your content!`);
     } else if (extractedTags.length > 0) {
-      alert('ℹ️ All hashtags are already in your tags list.');
+      alert('All hashtags are already in your tags list.');
     } else {
-      alert('ℹ️ No hashtags found in content.\n\nTip: Use #hashtag or #Multi_Word_Tag format.');
+      alert('No hashtags found in content.\n\nTip: Use #hashtag or #Multi_Word_Tag format.');
     }
   };
 
@@ -212,8 +193,7 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     e.preventDefault();
 
     try {
-      if (mode === 'edit') {
-        // Update existing entry
+      if (mode === ENTRY_FORM_MODES.EDIT) {
         const updateResult = await window.wikiAPI.updateEntry({
           entryId: entry.id,
           title,
@@ -222,9 +202,9 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
           infobox: infobox.map((item, index) => ({
             key: item.field_key || item.key,
             value: item.field_value || item.value,
-            displayOrder: index
+            displayOrder: index,
           })),
-          removedAssetIds
+          removedAssetIds,
         });
 
         if (!updateResult.success) {
@@ -232,12 +212,11 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
           return;
         }
 
-        // Add new assets if any
         if (files.length > 0) {
-          const filePaths = files.map(f => f.path);
+          const filePaths = files.map((f) => f.path);
           const assetsResult = await window.wikiAPI.addEntryAssets({
             entryId: entry.id,
-            filePaths
+            filePaths,
           });
 
           if (!assetsResult.success) {
@@ -248,8 +227,7 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
         alert('Entry updated successfully!');
         onComplete();
       } else {
-        // Create new entry
-        const filePaths = files.map(f => f.path);
+        const filePaths = files.map((f) => f.path);
         const result = await window.wikiAPI.saveEntry({
           title,
           content,
@@ -258,8 +236,8 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
           infobox: infobox.map((item, index) => ({
             key: item.key,
             value: item.value,
-            displayOrder: index
-          }))
+            displayOrder: index,
+          })),
         });
 
         if (result.success) {
@@ -275,34 +253,27 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
     }
   };
 
-  const handleCapture = async () => {
-    if (!snapshotUrl) return;
-    setIsCapturing(true);
+  const handleCapture = async (url) => {
     try {
-      const result = await window.wikiAPI.captureWebSnapshot(snapshotUrl);
+      const result = await window.wikiAPI.captureWebSnapshot(url);
       if (result.success) {
-        setFiles(prev => [...prev, { path: result.filePath, name: 'Web_Snapshot.pdf' }]);
-        // Auto-append source to content if empty
-        if (!content) setContent(`Source: ${snapshotUrl}`);
-        setActiveTab('write');
+        setFiles((prev) => [...prev, { path: result.filePath, name: 'Web_Snapshot.pdf' }]);
+        if (!content) setContent(`Source: ${url}`);
+        setActiveTab(ENTRY_FORM_TABS.WRITE);
         alert('Snapshot captured securely.');
       } else {
         alert('Snapshot failed: ' + result.message);
       }
     } catch (e) {
       alert('Error: ' + e.message);
-    } finally {
-      setIsCapturing(false);
     }
   };
 
-  // Infobox management functions
-  const addInfoboxField = () => {
-    setInfobox(prev => [...prev, { key: '', value: '' }]);
-  };
+  // Infobox handlers
+  const addInfoboxField = () => setInfobox((prev) => [...prev, { key: '', value: '' }]);
 
   const updateInfoboxField = (index, field, value) => {
-    setInfobox(prev => {
+    setInfobox((prev) => {
       const updated = [...prev];
       updated[index] = { ...updated[index], [field]: value };
       return updated;
@@ -310,30 +281,30 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
   };
 
   const removeInfoboxField = (index) => {
-    setInfobox(prev => prev.filter((_, i) => i !== index));
+    setInfobox((prev) => prev.filter((_, i) => i !== index));
   };
 
-  // Asset management functions
+  // Asset handlers
   const handleRemoveExistingAsset = (assetId) => {
-    setRemovedAssetIds(prev => [...prev, assetId]);
-    setExistingAssets(prev => prev.filter(a => a.id !== assetId));
+    setRemovedAssetIds((prev) => [...prev, assetId]);
+    setExistingAssets((prev) => prev.filter((a) => a.id !== assetId));
   };
 
   const handleRemoveNewFile = (index) => {
-    setFiles(prev => prev.filter((_, i) => i !== index));
+    setFiles((prev) => prev.filter((_, i) => i !== index));
   };
 
   const handleFileSelect = (e) => {
     const selectedFiles = Array.from(e.target.files);
-    setFiles(prev => [...prev, ...selectedFiles]);
+    setFiles((prev) => [...prev, ...selectedFiles]);
   };
 
   const updateAssetCaption = async (assetId, caption) => {
     try {
       await window.wikiAPI.updateAssetCaption({ assetId, caption });
-      setExistingAssets(prev => prev.map(asset =>
-        asset.id === assetId ? { ...asset, caption } : asset
-      ));
+      setExistingAssets((prev) =>
+        prev.map((asset) => (asset.id === assetId ? { ...asset, caption } : asset))
+      );
     } catch (error) {
       console.error('Failed to update caption:', error);
       alert('Error updating caption');
@@ -341,379 +312,125 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
   };
 
   return (
-    <div style={{ padding: '20px', width: '100%', height: '100%', display: 'flex', flexDirection: 'column' }}>
-      <div style={formCardStyle}>
-        <h1 style={headerStyle}>
-          {mode === 'edit' ? 'Edit Research Entry' : 'New Research Entry'}
+    <div style={styles.container}>
+      <div style={styles.formCard}>
+        <h1 style={styles.header}>
+          {mode === ENTRY_FORM_MODES.EDIT ? 'Edit Research Entry' : 'New Research Entry'}
         </h1>
 
-        {/* Tab Switcher */}
-        <div style={{ display: 'flex', gap: '20px', marginBottom: '25px', borderBottom: '1px solid #eee' }}>
-          {['write', 'preview', 'infobox', 'snapshot'].map(tab => (
-             <button
-                key={tab}
-                onClick={() => setActiveTab(tab)}
-                style={tabStyle(activeTab === tab)}
-             >
-                {tab.charAt(0).toUpperCase() + tab.slice(1)}
-             </button>
-          ))}
-        </div>
+        <FormTabs activeTab={activeTab} onTabChange={setActiveTab} />
 
-        <form onSubmit={handleSubmit} style={{ display: 'flex', flexDirection: 'column', flex: 1 }}>
-          <div style={{ marginBottom: '20px', position: 'relative' }}>
-            <label style={labelStyle}>
+        <form onSubmit={handleSubmit} style={styles.form}>
+          {/* Title Input */}
+          <div style={styles.fieldGroup}>
+            <label style={styles.label}>
               Entry Title
-              <span style={{fontSize:'0.8em', color:'#666', marginLeft:'8px', fontWeight:'normal'}}>
-                (Tip: Type <b>#</b> for tag suggestions)
-              </span>
+              <span style={styles.hint}>(Tip: Type <b>#</b> for tag suggestions)</span>
             </label>
             <input
-                ref={titleInputRef}
-                type="text"
-                placeholder="Entry Title"
-                value={title}
-                onChange={handleTitleChange}
-                onKeyDown={handleKeyDown}
-                required
-                style={titleInputStyle}
+              ref={titleInputRef}
+              type="text"
+              placeholder="Entry Title"
+              value={title}
+              onChange={handleTitleChange}
+              onKeyDown={handleKeyDown}
+              required
+              style={styles.titleInput}
             />
-            {/* Hashtag autocomplete dropdown for title */}
             {showHashtagSuggestions && activeField === 'title' && (
-              <div style={{
-                position: 'absolute',
-                top: '100%',
-                left: 0,
-                backgroundColor: '#fff',
-                border: '1px solid #e1e4e8',
-                borderRadius: '4px',
-                boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                maxWidth: '300px',
-                zIndex: 1000,
-                marginTop: '4px'
-              }}>
-                {hashtagSuggestions.map((suggestion, index) => (
-                  <div
-                    key={suggestion.id}
-                    onClick={() => insertHashtag(suggestion.name)}
-                    style={{
-                      padding: '8px 12px',
-                      cursor: 'pointer',
-                      backgroundColor: index === selectedHashtagIndex ? '#e3f2fd' : '#fff',
-                      borderBottom: index < hashtagSuggestions.length - 1 ? '1px solid #eee' : 'none'
-                    }}
-                  >
-                    <span style={{ fontWeight: 'bold', color: '#1565c0' }}>#{suggestion.name}</span>
-                    <span style={{ fontSize: '0.85em', color: '#666', marginLeft: '8px' }}>
-                      ({suggestion.count} {suggestion.count === 1 ? 'entry' : 'entries'})
-                    </span>
-                  </div>
-                ))}
-              </div>
+              <HashtagDropdown
+                suggestions={hashtagSuggestions}
+                selectedIndex={selectedHashtagIndex}
+                position={{ top: 80, left: 0 }}
+                onSelect={insertHashtag}
+                onMouseEnter={setSelectedHashtagIndex}
+              />
             )}
           </div>
 
-          {/* Tag Input Section */}
-          <div style={{ marginBottom: '20px' }}>
-            <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '8px' }}>
-              <label style={labelStyle}>Tags / Keywords</label>
-              <button
-                type="button"
-                onClick={scanHashtags}
-                style={{
-                  padding: '6px 12px',
-                  backgroundColor: '#36c',
-                  color: '#fff',
-                  border: 'none',
-                  borderRadius: '4px',
-                  cursor: 'pointer',
-                  fontSize: '0.85em',
-                  fontWeight: '500',
-                  transition: 'background-color 0.2s'
-                }}
-                onMouseEnter={(e) => e.target.style.backgroundColor = '#2558a8'}
-                onMouseLeave={(e) => e.target.style.backgroundColor = '#36c'}
-              >
-                🔍 Scan Tags from Content
+          {/* Tags Section */}
+          <div style={styles.fieldGroup}>
+            <div style={styles.tagsHeader}>
+              <label style={styles.label}>Tags / Keywords</label>
+              <button type="button" onClick={scanHashtags} style={styles.scanButton}>
+                Scan Tags from Content
               </button>
             </div>
             <TagInput tags={tags} onChange={setTags} />
           </div>
 
-          {activeTab === 'write' ? (
-            <div style={{ marginBottom: '20px', flex: 1, display: 'flex', flexDirection: 'column', position: 'relative' }}>
-                <div style={{display:'flex', justifyContent:'space-between', alignItems:'center'}}>
-                    <label style={labelStyle}>Dossier Content (Markdown)</label>
-                    <span style={{fontSize:'0.8em', color:'#666', marginBottom:'8px'}}>
-                        Tip: Use <b>[[Title]]</b> to link. Type <b>#</b> for tag suggestions.
-                    </span>
-                </div>
-                <textarea
-                    ref={textareaRef}
-                    placeholder="Enter research data..."
-                    value={content}
-                    onChange={handleContentChange}
-                    onKeyDown={handleKeyDown}
-                    required
-                    style={textAreaStyle}
+          {/* Tab Content */}
+          {activeTab === ENTRY_FORM_TABS.WRITE && (
+            <div style={styles.writeTab}>
+              <div style={styles.contentHeader}>
+                <label style={styles.label}>Dossier Content (Markdown)</label>
+                <span style={styles.hint}>
+                  Tip: Use <b>[[Title]]</b> to link. Type <b>#</b> for tag suggestions.
+                </span>
+              </div>
+              <textarea
+                ref={textareaRef}
+                placeholder="Enter research data..."
+                value={content}
+                onChange={handleContentChange}
+                onKeyDown={handleKeyDown}
+                required
+                style={styles.textarea}
+              />
+              {showHashtagSuggestions && activeField === 'content' && (
+                <HashtagDropdown
+                  suggestions={hashtagSuggestions}
+                  selectedIndex={selectedHashtagIndex}
+                  position={{ top: hashtagPosition.top + 80, left: hashtagPosition.left }}
+                  onSelect={insertHashtag}
+                  onMouseEnter={setSelectedHashtagIndex}
                 />
-                {/* Hashtag autocomplete dropdown */}
-                {showHashtagSuggestions && activeField === 'content' && (
-                  <div style={{
-                    position: 'absolute',
-                    top: `${hashtagPosition.top + 80}px`,
-                    left: `${hashtagPosition.left}px`,
-                    backgroundColor: '#fff',
-                    border: '1px solid #e1e4e8',
-                    borderRadius: '4px',
-                    boxShadow: '0 4px 8px rgba(0,0,0,0.1)',
-                    maxWidth: '300px',
-                    zIndex: 1000
-                  }}>
-                    {hashtagSuggestions.map((suggestion, index) => (
-                      <div
-                        key={suggestion.id}
-                        onClick={() => insertHashtag(suggestion.name)}
-                        style={{
-                          padding: '8px 12px',
-                          cursor: 'pointer',
-                          backgroundColor: index === selectedHashtagIndex ? '#e3f2fd' : '#fff',
-                          borderBottom: index < hashtagSuggestions.length - 1 ? '1px solid #eee' : 'none'
-                        }}
-                      >
-                        <span style={{ fontWeight: 'bold', color: '#1565c0' }}>#{suggestion.name}</span>
-                        <span style={{ fontSize: '0.85em', color: '#666', marginLeft: '8px' }}>
-                          ({suggestion.count} {suggestion.count === 1 ? 'entry' : 'entries'})
-                        </span>
-                      </div>
-                    ))}
-                  </div>
-                )}
+              )}
             </div>
-          ) : activeTab === 'preview' ? (
-            <div style={previewBoxStyle}>
-              <h1 style={{...headerStyle, fontSize: '1.8em', borderBottom: 'none'}}>{title || 'Untitled Entry'}</h1>
-              {/* Preview tags */}
+          )}
+
+          {activeTab === ENTRY_FORM_TABS.PREVIEW && (
+            <div style={styles.previewBox}>
+              <h1 style={styles.previewTitle}>{title || 'Untitled Entry'}</h1>
               {tags.length > 0 && (
-                <div style={{ display: 'flex', gap: '8px', marginBottom: '15px', flexWrap: 'wrap' }}>
+                <div style={styles.previewTags}>
                   {tags.map((tag, i) => (
-                    <span key={i} style={{
-                      padding: '4px 10px',
-                      backgroundColor: '#e3f2fd',
-                      color: '#1565c0',
-                      borderRadius: '16px',
-                      fontSize: '0.85em',
-                      fontWeight: '500'
-                    }}>
-                      {tag}
-                    </span>
+                    <span key={i} style={styles.previewTag}>{tag}</span>
                   ))}
                 </div>
               )}
-              <div style={{ whiteSpace: 'pre-wrap', fontFamily: 'Georgia, serif', lineHeight: '1.6', flex: 1, overflowY: 'auto' }}>{content || 'Nothing to preview...'}</div>
+              <div style={styles.previewContent}>{content || 'Nothing to preview...'}</div>
             </div>
-          ) : activeTab === 'infobox' ? (
-            <div style={{ padding: '20px', flex: 1, overflowY: 'auto' }}>
-              <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '20px' }}>
-                <div>
-                  <h4 style={{ margin: 0, color: '#333' }}>Wikipedia-Style Infobox</h4>
-                  <p style={{ fontSize: '0.9em', color: '#666', marginTop: '5px' }}>
-                    Add structured key-value fields (e.g., Born, Nationality, Position)
-                  </p>
-                </div>
-                <button
-                  type="button"
-                  onClick={addInfoboxField}
-                  style={{
-                    padding: '8px 16px',
-                    backgroundColor: '#36c',
-                    color: '#fff',
-                    border: 'none',
-                    borderRadius: '4px',
-                    cursor: 'pointer',
-                    fontWeight: '500'
-                  }}
-                >
-                  + Add Field
-                </button>
-              </div>
+          )}
 
-              {infobox.length === 0 ? (
-                <div style={{ textAlign: 'center', padding: '40px', color: '#999', border: '1px dashed #ddd', borderRadius: '4px' }}>
-                  No infobox fields yet. Click "Add Field" to get started.
-                </div>
-              ) : (
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '15px' }}>
-                  {infobox.map((field, index) => (
-                    <div key={index} style={{ display: 'flex', gap: '10px', alignItems: 'flex-start' }}>
-                      <div style={{ flex: 1 }}>
-                        <input
-                          type="text"
-                          placeholder="Field name (e.g., Born, Position)"
-                          value={field.field_key || field.key || ''}
-                          onChange={(e) => updateInfoboxField(index, 'key', e.target.value)}
-                          style={{
-                            ...standardInputStyle,
-                            width: '100%',
-                            fontWeight: '600'
-                          }}
-                        />
-                      </div>
-                      <div style={{ flex: 2 }}>
-                        <input
-                          type="text"
-                          placeholder="Value (e.g., January 1, 1970)"
-                          value={field.field_value || field.value || ''}
-                          onChange={(e) => updateInfoboxField(index, 'value', e.target.value)}
-                          style={{
-                            ...standardInputStyle,
-                            width: '100%'
-                          }}
-                        />
-                      </div>
-                      <button
-                        type="button"
-                        onClick={() => removeInfoboxField(index)}
-                        style={{
-                          padding: '10px 12px',
-                          backgroundColor: '#dc3545',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.9em'
-                        }}
-                        title="Remove field"
-                      >
-                        ×
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              )}
-            </div>
-          ) : activeTab === 'snapshot' ? (
-            <div style={snapshotContainerStyle}>
-               <h4 style={{marginTop:0, color: '#333'}}>Secure Web Archiver</h4>
-               <p style={{fontSize: '0.9em', color: '#666', marginBottom: '15px'}}>
-                  Enter a URL to capture a full-page PDF snapshot using a sandboxed browser process.
-               </p>
-               <div style={{display: 'flex', gap: '10px'}}>
-                   <input
-                      type="url"
-                      placeholder="https://example.com/sensitive-report"
-                      value={snapshotUrl}
-                      onChange={(e) => setSnapshotUrl(e.target.value)}
-                      style={{...standardInputStyle, flex: 1}}
-                   />
-                   <button
-                      type="button"
-                      onClick={handleCapture}
-                      disabled={isCapturing}
-                      style={{...actionBtnStyle, backgroundColor: isCapturing ? '#999' : '#d32f2f'}}
-                   >
-                      {isCapturing ? 'Archiving...' : 'Capture'}
-                   </button>
-               </div>
-            </div>
-          ) : null}
+          {activeTab === ENTRY_FORM_TABS.INFOBOX && (
+            <InfoboxEditor
+              fields={infobox}
+              onAdd={addInfoboxField}
+              onUpdate={updateInfoboxField}
+              onRemove={removeInfoboxField}
+            />
+          )}
 
-          {/* Attachments Section */}
-          <div style={attachmentSectionStyle}>
-            <div style={{display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginBottom: '15px'}}>
-                <div>
-                    <label style={{...labelStyle, marginBottom: '5px', display: 'block'}}>📎 Attach Evidence</label>
-                    <div style={{fontSize: '0.85em', color: '#666'}}>Supported: Images, PDF (multiple files allowed)</div>
-                </div>
-                <input
-                    type="file"
-                    accept="image/*,application/pdf"
-                    multiple
-                    onChange={handleFileSelect}
-                    style={{ fontSize: '0.9em' }}
-                />
-            </div>
+          {activeTab === ENTRY_FORM_TABS.SNAPSHOT && (
+            <WebSnapshotTab onCapture={handleCapture} />
+          )}
 
-            {/* Existing Assets (Edit Mode) */}
-            {existingAssets.length > 0 && (
-              <div style={{ marginBottom: '15px' }}>
-                <h4 style={{ fontSize: '0.9em', color: '#333', marginBottom: '10px' }}>Existing Assets:</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '10px' }}>
-                  {existingAssets.map((asset) => (
-                    <div key={asset.id} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', backgroundColor: '#f8f9fa', borderRadius: '4px' }}>
-                      <span style={{ flex: 1, fontSize: '0.9em', color: '#333' }}>
-                        {asset.asset_path ? asset.asset_path.split(/[/\\]/).pop() : 'Untitled'}
-                      </span>
-                      <input
-                        type="text"
-                        placeholder="Caption..."
-                        value={asset.caption || ''}
-                        onChange={(e) => updateAssetCaption(asset.id, e.target.value)}
-                        style={{ ...standardInputStyle, flex: 2, fontSize: '0.85em' }}
-                      />
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveExistingAsset(asset.id)}
-                        style={{
-                          padding: '6px 10px',
-                          backgroundColor: '#dc3545',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.85em'
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
+          {/* Attachments */}
+          <AttachmentsSection
+            existingAssets={existingAssets}
+            newFiles={files}
+            onFileSelect={handleFileSelect}
+            onRemoveExisting={handleRemoveExistingAsset}
+            onRemoveNew={handleRemoveNewFile}
+            onUpdateCaption={updateAssetCaption}
+          />
 
-            {/* Newly Selected Files */}
-            {files.length > 0 && (
-              <div>
-                <h4 style={{ fontSize: '0.9em', color: '#333', marginBottom: '10px' }}>New Files:</h4>
-                <div style={{ display: 'flex', flexDirection: 'column', gap: '8px' }}>
-                  {files.map((f, index) => (
-                    <div key={index} style={{ display: 'flex', alignItems: 'center', gap: '10px', padding: '8px', backgroundColor: '#e3f2fd', borderRadius: '4px' }}>
-                      <span style={{ flex: 1, color: '#1565c0', fontSize: '0.9em', fontWeight: '500' }}>
-                        {f.name}
-                      </span>
-                      <button
-                        type="button"
-                        onClick={() => handleRemoveNewFile(index)}
-                        style={{
-                          padding: '6px 10px',
-                          backgroundColor: '#dc3545',
-                          color: '#fff',
-                          border: 'none',
-                          borderRadius: '4px',
-                          cursor: 'pointer',
-                          fontSize: '0.85em'
-                        }}
-                      >
-                        Remove
-                      </button>
-                    </div>
-                  ))}
-                </div>
-              </div>
-            )}
-
-            {existingAssets.length === 0 && files.length === 0 && (
-              <div style={{ textAlign: 'center', padding: '20px', color: '#999', fontSize: '0.9em' }}>
-                No files attached yet
-              </div>
-            )}
-          </div>
-
-          <div style={{ marginTop: 'auto', display: 'flex', justifyContent: 'flex-end', paddingTop: '20px' }}>
-             <button type="submit" style={primaryBtnStyle}>
-                {mode === 'edit' ? 'Update Entry' : 'Harden & Save to Vault'}
-             </button>
+          {/* Submit */}
+          <div style={styles.submitRow}>
+            <button type="submit" style={styles.submitButton}>
+              {mode === ENTRY_FORM_MODES.EDIT ? 'Update Entry' : 'Harden & Save to Vault'}
+            </button>
           </div>
         </form>
       </div>
@@ -721,132 +438,164 @@ const EntryForm = ({ onComplete, initialTitle = '', mode = 'create', entry = nul
   );
 };
 
-// Styles
-const formCardStyle = {
-    backgroundColor: '#fff',
-    border: '1px solid #a2a9b1',
-    borderRadius: '2px',
-    padding: '40px',
+const styles = {
+  container: {
+    padding: spacing['3xl'],
     width: '100%',
     height: '100%',
-    boxShadow: '0 1px 3px rgba(0,0,0,0.05)',
     display: 'flex',
-    flexDirection: 'column'
-};
-
-const headerStyle = {
-    fontFamily: "'Linux Libertine', Georgia, serif",
-    fontSize: '2.4em',
-    margin: '0 0 20px 0',
-    color: '#000',
-    borderBottom: '1px solid #a2a9b1',
-    paddingBottom: '10px',
-    fontWeight: 'normal'
-};
-
-const tabStyle = (active) => ({
-    padding: '10px 5px',
-    cursor: 'pointer',
-    background: 'none',
-    border: 'none',
-    borderBottom: active ? '3px solid #36c' : '3px solid transparent',
-    color: active ? '#36c' : '#555',
-    fontWeight: 'bold',
-    fontSize: '1em',
-    transition: 'all 0.2s',
-    marginRight: '10px'
-});
-
-const titleInputStyle = {
+    flexDirection: 'column',
+  },
+  formCard: {
+    backgroundColor: colors.white,
+    border: `1px solid ${colors.borderMedium}`,
+    borderRadius: borderRadius.sm,
+    padding: spacing['6xl'],
     width: '100%',
-    padding: '10px 0',
-    fontSize: '1.5em',
-    fontFamily: "'Linux Libertine', Georgia, serif",
+    height: '100%',
+    boxShadow: shadows.md,
+    display: 'flex',
+    flexDirection: 'column',
+  },
+  header: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: typography.fontSize['4xl'],
+    margin: `0 0 ${spacing['3xl']} 0`,
+    color: colors.black,
+    borderBottom: `1px solid ${colors.borderMedium}`,
+    paddingBottom: spacing.lg,
+    fontWeight: typography.fontWeight.normal,
+  },
+  form: {
+    display: 'flex',
+    flexDirection: 'column',
+    flex: 1,
+  },
+  fieldGroup: {
+    marginBottom: spacing['3xl'],
+    position: 'relative',
+  },
+  label: {
+    display: 'block',
+    fontSize: typography.fontSize.sm,
+    textTransform: 'uppercase',
+    color: colors.textMuted,
+    fontWeight: typography.fontWeight.bold,
+    marginBottom: spacing.md,
+    letterSpacing: '0.5px',
+  },
+  hint: {
+    fontSize: '0.8em',
+    color: colors.textMuted,
+    marginLeft: spacing.md,
+    fontWeight: typography.fontWeight.normal,
+    textTransform: 'none',
+  },
+  titleInput: {
+    width: '100%',
+    padding: `${spacing.lg} 0`,
+    fontSize: typography.fontSize.xl,
+    fontFamily: typography.fontFamily.primary,
     border: 'none',
-    borderBottom: '1px solid #ccc',
+    borderBottom: `1px solid ${colors.borderDark}`,
     outline: 'none',
     backgroundColor: 'transparent',
-    color: '#000',
-    transition: 'border-color 0.2s',
-};
-
-const standardInputStyle = {
-    padding: '10px',
-    fontSize: '1em',
-    border: '1px solid #ccc',
-    borderRadius: '4px',
-    outline: 'none'
-};
-
-const textAreaStyle = {
+    color: colors.black,
+  },
+  tagsHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+    marginBottom: spacing.md,
+  },
+  scanButton: {
+    padding: `${spacing.sm} ${spacing.xl}`,
+    backgroundColor: colors.primary,
+    color: colors.white,
+    border: 'none',
+    borderRadius: borderRadius.md,
+    cursor: 'pointer',
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+  },
+  writeTab: {
+    marginBottom: spacing['3xl'],
+    flex: 1,
+    display: 'flex',
+    flexDirection: 'column',
+    position: 'relative',
+  },
+  contentHeader: {
+    display: 'flex',
+    justifyContent: 'space-between',
+    alignItems: 'center',
+  },
+  textarea: {
     width: '100%',
     height: '100%',
-    padding: '15px',
-    fontFamily: "monospace",
-    border: '1px solid #ddd',
-    borderRadius: '4px',
-    fontSize: '0.95em',
-    lineHeight: '1.5',
+    padding: spacing['2xl'],
+    fontFamily: typography.fontFamily.monospace,
+    border: `1px solid ${colors.borderLight}`,
+    borderRadius: borderRadius.md,
+    fontSize: typography.fontSize.sm,
+    lineHeight: typography.lineHeight.normal,
     resize: 'none',
-    backgroundColor: '#fafafa'
-};
-
-const labelStyle = {
-    display: 'block',
-    fontSize: '0.85em',
-    textTransform: 'uppercase',
-    color: '#72777d',
-    fontWeight: 'bold',
-    marginBottom: '8px',
-    letterSpacing: '0.5px'
-};
-
-const previewBoxStyle = {
+    backgroundColor: colors.backgroundSecondary,
+  },
+  previewBox: {
     flex: 1,
-    padding: '30px',
-    border: '1px solid #eee',
-    backgroundColor: '#fff',
-    color: '#202122',
+    padding: spacing['5xl'],
+    border: `1px solid ${colors.borderLight}`,
+    backgroundColor: colors.white,
+    color: colors.text,
     display: 'flex',
     flexDirection: 'column',
     userSelect: 'text',
-    cursor: 'text'
-};
-
-const snapshotContainerStyle = {
-    padding: '20px',
-    backgroundColor: '#f8f9fa',
-    border: '1px solid #e1e4e8',
-    borderRadius: '6px'
-};
-
-const attachmentSectionStyle = {
-    marginTop: '25px',
-    padding: '20px',
-    border: '1px dashed #ccc',
-    borderRadius: '6px',
-    backgroundColor: '#fcfcfc'
-};
-
-const primaryBtnStyle = {
-    padding: '12px 24px',
-    backgroundColor: '#36c',
-    color: '#fff',
+    cursor: 'text',
+  },
+  previewTitle: {
+    fontFamily: typography.fontFamily.primary,
+    fontSize: '1.8em',
+    marginBottom: spacing['2xl'],
+  },
+  previewTags: {
+    display: 'flex',
+    gap: spacing.md,
+    marginBottom: spacing['2xl'],
+    flexWrap: 'wrap',
+  },
+  previewTag: {
+    padding: `${spacing.xs} ${spacing.lg}`,
+    backgroundColor: colors.primaryLight,
+    color: colors.primaryDark,
+    borderRadius: borderRadius['2xl'],
+    fontSize: typography.fontSize.sm,
+    fontWeight: typography.fontWeight.medium,
+  },
+  previewContent: {
+    whiteSpace: 'pre-wrap',
+    fontFamily: typography.fontFamily.primary,
+    lineHeight: typography.lineHeight.relaxed,
+    flex: 1,
+    overflowY: 'auto',
+  },
+  submitRow: {
+    marginTop: 'auto',
+    display: 'flex',
+    justifyContent: 'flex-end',
+    paddingTop: spacing['3xl'],
+  },
+  submitButton: {
+    padding: `${spacing.xl} ${spacing['4xl']}`,
+    backgroundColor: colors.primary,
+    color: colors.white,
     border: 'none',
-    borderRadius: '4px',
+    borderRadius: borderRadius.md,
     cursor: 'pointer',
-    fontWeight: 'bold',
-    fontSize: '1em',
-    boxShadow: '0 1px 2px rgba(0,0,0,0.1)'
-};
-
-const actionBtnStyle = {
-    padding: '10px 20px',
-    color: '#fff',
-    border: 'none',
-    borderRadius: '4px',
-    cursor: 'pointer',
-    fontWeight: 'bold',
+    fontWeight: typography.fontWeight.bold,
+    fontSize: typography.fontSize.base,
+    boxShadow: shadows.sm,
+  },
 };
 
 export default EntryForm;
