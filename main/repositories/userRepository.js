@@ -11,7 +11,7 @@ const { formatUser } = require('../utils/formatters');
  * @returns {Promise<Object|null>} User document or null
  */
 const findByUsername = async (username) => {
-    return await User.findOne({ username });
+  return await User.findOne({ username });
 };
 
 /**
@@ -20,7 +20,7 @@ const findByUsername = async (username) => {
  * @returns {Promise<Object|null>} User document or null
  */
 const findActiveByUsername = async (username) => {
-    return await User.findOne({ username, active: true });
+  return await User.findOne({ username, active: true });
 };
 
 /**
@@ -29,8 +29,8 @@ const findActiveByUsername = async (username) => {
  * @returns {Promise<boolean>} True if exists
  */
 const exists = async (username) => {
-    const user = await User.findOne({ username });
-    return !!user;
+  const user = await User.findOne({ username });
+  return !!user;
 };
 
 /**
@@ -39,7 +39,7 @@ const exists = async (username) => {
  * @returns {Promise<Object>} Created user document
  */
 const create = async ({ username, salt, hash, role }) => {
-    return await User.create({ username, salt, hash, role });
+  return await User.create({ username, salt, hash, role });
 };
 
 /**
@@ -47,8 +47,8 @@ const create = async ({ username, salt, hash, role }) => {
  * @returns {Promise<Array>} Array of formatted users
  */
 const findAll = async () => {
-    const users = await User.find({}, 'username role active createdAt').sort({ createdAt: -1 });
-    return users.map(formatUser);
+  const users = await User.find({}, 'username role active createdAt').sort({ createdAt: -1 });
+  return users.map(formatUser);
 };
 
 /**
@@ -57,7 +57,7 @@ const findAll = async () => {
  * @returns {Promise<Object>} Delete result
  */
 const deleteByUsername = async (username) => {
-    return await User.deleteOne({ username });
+  return await User.deleteOne({ username });
 };
 
 /**
@@ -67,7 +67,7 @@ const deleteByUsername = async (username) => {
  * @returns {Promise<Object>} Update result
  */
 const updateRole = async (username, role) => {
-    return await User.updateOne({ username }, { role });
+  return await User.updateOne({ username }, { role });
 };
 
 /**
@@ -76,12 +76,12 @@ const updateRole = async (username, role) => {
  * @returns {Promise<Object>} User with new status
  */
 const toggleActive = async (username) => {
-    const user = await User.findOne({ username });
-    if (!user) return null;
+  const user = await User.findOne({ username });
+  if (!user) return null;
 
-    user.active = !user.active;
-    await user.save();
-    return user;
+  user.active = !user.active;
+  await user.save();
+  return user;
 };
 
 /**
@@ -91,7 +91,7 @@ const toggleActive = async (username) => {
  * @returns {Promise<Object>} Update result
  */
 const updateCredentials = async (username, { salt, hash }) => {
-    return await User.updateOne({ username }, { salt, hash });
+  return await User.updateOne({ username }, { salt, hash });
 };
 
 /**
@@ -101,12 +101,32 @@ const updateCredentials = async (username, { salt, hash }) => {
  * @returns {Promise<Object>} Updated user
  */
 const updateUsername = async (currentUsername, newUsername) => {
-    const user = await User.findOne({ username: currentUsername });
-    if (!user) return null;
+  const user = await User.findOne({ username: currentUsername });
+  if (!user) return null;
 
-    user.username = newUsername;
-    await user.save();
-    return user;
+  user.username = newUsername;
+  await user.save();
+  return user;
+};
+
+/**
+ * Update user profile image
+ * @param {string} username - Username
+ * @param {string} profileImage - Base64 encoded image
+ * @returns {Promise<Object>} Update result
+ */
+const updateProfileImage = async (username, profileImage) => {
+  return await User.updateOne({ username }, { profileImage });
+};
+
+/**
+ * Get user profile image
+ * @param {string} username - Username
+ * @returns {Promise<string|null>} Profile image or null
+ */
+const getProfileImage = async (username) => {
+  const user = await User.findOne({ username }, 'profileImage');
+  return user ? user.profileImage : null;
 };
 
 /**
@@ -114,7 +134,7 @@ const updateUsername = async (currentUsername, newUsername) => {
  * @returns {Promise<Object>} Delete result
  */
 const deleteAll = async () => {
-    return await User.deleteMany({});
+  return await User.deleteMany({});
 };
 
 /**
@@ -123,7 +143,7 @@ const deleteAll = async () => {
  * @returns {Promise<Array>} Inserted documents
  */
 const insertMany = async (users) => {
-    return await User.insertMany(users);
+  return await User.insertMany(users);
 };
 
 /**
@@ -131,21 +151,23 @@ const insertMany = async (users) => {
  * @returns {Promise<Array>} Array of plain objects
  */
 const findAllLean = async () => {
-    return await User.find({}).lean();
+  return await User.find({}).lean();
 };
 
 module.exports = {
-    findByUsername,
-    findActiveByUsername,
-    exists,
-    create,
-    findAll,
-    deleteByUsername,
-    updateRole,
-    toggleActive,
-    updateCredentials,
-    updateUsername,
-    deleteAll,
-    insertMany,
-    findAllLean
+  findByUsername,
+  findActiveByUsername,
+  exists,
+  create,
+  findAll,
+  deleteByUsername,
+  updateRole,
+  toggleActive,
+  updateCredentials,
+  updateUsername,
+  updateProfileImage,
+  getProfileImage,
+  deleteAll,
+  insertMany,
+  findAllLean,
 };

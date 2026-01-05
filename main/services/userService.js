@@ -14,20 +14,20 @@ const { generateRandomHex, hashPassword, hashPasswordPbkdf2 } = require('../util
  * @returns {Promise<Object>} Result with success status
  */
 const verifyUser = async (username, password) => {
-    try {
-        const user = await userRepository.findActiveByUsername(username);
-        if (!user) {
-            return { success: false, message: 'User not found or deactivated' };
-        }
-
-        const hash = hashPassword(password, user.salt);
-        if (hash === user.hash) {
-            return { success: true, role: user.role, username: user.username };
-        }
-        return { success: false, message: 'Invalid credentials' };
-    } catch (error) {
-        return { success: false, message: error.message };
+  try {
+    const user = await userRepository.findActiveByUsername(username);
+    if (!user) {
+      return { success: false, message: 'User not found or deactivated' };
     }
+
+    const hash = hashPassword(password, user.salt);
+    if (hash === user.hash) {
+      return { success: true, role: user.role, username: user.username };
+    }
+    return { success: false, message: 'Invalid credentials' };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -38,15 +38,15 @@ const verifyUser = async (username, password) => {
  * @returns {Promise<Object>} Result with success status
  */
 const createUser = async (username, password, role) => {
-    const salt = generateRandomHex(16);
-    const hash = hashPassword(password, salt);
+  const salt = generateRandomHex(16);
+  const hash = hashPassword(password, salt);
 
-    try {
-        await userRepository.create({ username, salt, hash, role });
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+  try {
+    await userRepository.create({ username, salt, hash, role });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -54,12 +54,12 @@ const createUser = async (username, password, role) => {
  * @returns {Promise<Array>} Array of users
  */
 const getAllUsers = async () => {
-    try {
-        return await userRepository.findAll();
-    } catch (error) {
-        console.error('Error getting users:', error);
-        return [];
-    }
+  try {
+    return await userRepository.findAll();
+  } catch (error) {
+    console.error('Error getting users:', error);
+    return [];
+  }
 };
 
 /**
@@ -68,12 +68,12 @@ const getAllUsers = async () => {
  * @returns {Promise<Object>} Result with success status
  */
 const deleteUser = async (username) => {
-    try {
-        await userRepository.deleteByUsername(username);
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+  try {
+    await userRepository.deleteByUsername(username);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -83,12 +83,12 @@ const deleteUser = async (username) => {
  * @returns {Promise<Object>} Result with success status
  */
 const updateUserRole = async (username, newRole) => {
-    try {
-        await userRepository.updateRole(username, newRole);
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+  try {
+    await userRepository.updateRole(username, newRole);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -97,13 +97,13 @@ const updateUserRole = async (username, newRole) => {
  * @returns {Promise<Object>} Result with success status and new active state
  */
 const toggleUserActive = async (username) => {
-    try {
-        const user = await userRepository.toggleActive(username);
-        if (!user) return { success: false, message: 'User not found' };
-        return { success: true, active: user.active ? 1 : 0 };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+  try {
+    const user = await userRepository.toggleActive(username);
+    if (!user) return { success: false, message: 'User not found' };
+    return { success: true, active: user.active ? 1 : 0 };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -113,14 +113,14 @@ const toggleUserActive = async (username) => {
  * @returns {Promise<Object>} Result with success status
  */
 const resetUserPassword = async (username, newPassword) => {
-    try {
-        const salt = generateRandomHex(16);
-        const hash = hashPasswordPbkdf2(newPassword, salt);
-        await userRepository.updateCredentials(username, { salt, hash });
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
-    }
+  try {
+    const salt = generateRandomHex(16);
+    const hash = hashPasswordPbkdf2(newPassword, salt);
+    await userRepository.updateCredentials(username, { salt, hash });
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -131,28 +131,28 @@ const resetUserPassword = async (username, newPassword) => {
  * @returns {Promise<Object>} Result with success status
  */
 const changeOwnPassword = async (username, currentPassword, newPassword) => {
-    try {
-        const user = await userRepository.findByUsername(username);
-        if (!user) return { success: false, message: 'User not found' };
+  try {
+    const user = await userRepository.findByUsername(username);
+    if (!user) return { success: false, message: 'User not found' };
 
-        // Verify current password
-        const hash = hashPasswordPbkdf2(currentPassword, user.salt);
-        if (hash !== user.hash) {
-            return { success: false, message: 'Current password is incorrect' };
-        }
-
-        // Set new password
-        const newSalt = generateRandomHex(16);
-        const newHash = hashPasswordPbkdf2(newPassword, newSalt);
-
-        user.salt = newSalt;
-        user.hash = newHash;
-        await user.save();
-
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
+    // Verify current password
+    const hash = hashPasswordPbkdf2(currentPassword, user.salt);
+    if (hash !== user.hash) {
+      return { success: false, message: 'Current password is incorrect' };
     }
+
+    // Set new password
+    const newSalt = generateRandomHex(16);
+    const newHash = hashPasswordPbkdf2(newPassword, newSalt);
+
+    user.salt = newSalt;
+    user.hash = newHash;
+    await user.save();
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 /**
@@ -163,45 +163,76 @@ const changeOwnPassword = async (username, currentPassword, newPassword) => {
  * @returns {Promise<Object>} Result with success status
  */
 const changeOwnUsername = async (currentUsername, newUsername, password) => {
-    try {
-        // Check if new username already exists
-        const existingUser = await userRepository.findByUsername(newUsername);
-        if (existingUser) {
-            return { success: false, message: 'Username already exists' };
-        }
-
-        // Verify password
-        const user = await userRepository.findByUsername(currentUsername);
-        if (!user) return { success: false, message: 'User not found' };
-
-        const hash = hashPasswordPbkdf2(password, user.salt);
-        if (hash !== user.hash) {
-            return { success: false, message: 'Password is incorrect' };
-        }
-
-        // Update username in user record
-        await userRepository.updateUsername(currentUsername, newUsername);
-
-        // Update username in all entries
-        await entryRepository.updateAuthorUsername(currentUsername, newUsername);
-
-        // Update username in activity logs
-        await activityLogRepository.updateUsername(currentUsername, newUsername);
-
-        return { success: true };
-    } catch (error) {
-        return { success: false, message: error.message };
+  try {
+    // Check if new username already exists
+    const existingUser = await userRepository.findByUsername(newUsername);
+    if (existingUser) {
+      return { success: false, message: 'Username already exists' };
     }
+
+    // Verify password
+    const user = await userRepository.findByUsername(currentUsername);
+    if (!user) return { success: false, message: 'User not found' };
+
+    const hash = hashPasswordPbkdf2(password, user.salt);
+    if (hash !== user.hash) {
+      return { success: false, message: 'Password is incorrect' };
+    }
+
+    // Update username in user record
+    await userRepository.updateUsername(currentUsername, newUsername);
+
+    // Update username in all entries
+    await entryRepository.updateAuthorUsername(currentUsername, newUsername);
+
+    // Update username in activity logs
+    await activityLogRepository.updateUsername(currentUsername, newUsername);
+
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Update user profile image
+ * @param {string} username - Username
+ * @param {string} profileImage - Base64 encoded image
+ * @returns {Promise<Object>} Result with success status
+ */
+const updateProfileImage = async (username, profileImage) => {
+  try {
+    await userRepository.updateProfileImage(username, profileImage);
+    return { success: true };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
+};
+
+/**
+ * Get user profile image
+ * @param {string} username - Username
+ * @returns {Promise<Object>} Result with profile image
+ */
+const getProfileImage = async (username) => {
+  try {
+    const profileImage = await userRepository.getProfileImage(username);
+    return { success: true, profileImage };
+  } catch (error) {
+    return { success: false, message: error.message };
+  }
 };
 
 module.exports = {
-    verifyUser,
-    createUser,
-    getAllUsers,
-    deleteUser,
-    updateUserRole,
-    toggleUserActive,
-    resetUserPassword,
-    changeOwnPassword,
-    changeOwnUsername
+  verifyUser,
+  createUser,
+  getAllUsers,
+  deleteUser,
+  updateUserRole,
+  toggleUserActive,
+  resetUserPassword,
+  changeOwnPassword,
+  changeOwnUsername,
+  updateProfileImage,
+  getProfileImage,
 };

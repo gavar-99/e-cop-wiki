@@ -8,29 +8,36 @@ const userSchema = new Schema({
   hash: { type: String, required: true },
   role: { type: String, required: true, enum: ['admin', 'editor', 'reader'] },
   active: { type: Boolean, default: true },
-  createdAt: { type: Date, default: Date.now }
+  profileImage: { type: String, default: null }, // Base64 encoded image stored in MongoDB
+  createdAt: { type: Date, default: Date.now },
 });
 
 // Tag Schema
 const tagSchema = new Schema({
   name: { type: String, required: true, unique: true, lowercase: true, trim: true },
-  createdAt: { type: Date, default: Date.now }
+  createdAt: { type: Date, default: Date.now },
 });
 
 // Asset Sub-Schema (embedded in Entry)
-const assetSchema = new Schema({
-  assetPath: { type: String, required: true },
-  sha256Hash: { type: String, required: true },
-  caption: { type: String, default: '' },
-  displayOrder: { type: Number, default: 0 }
-}, { _id: true });
+const assetSchema = new Schema(
+  {
+    assetPath: { type: String, required: true },
+    sha256Hash: { type: String, required: true },
+    caption: { type: String, default: '' },
+    displayOrder: { type: Number, default: 0 },
+  },
+  { _id: true }
+);
 
 // Infobox Field Sub-Schema (embedded in Entry)
-const infoboxFieldSchema = new Schema({
-  fieldKey: { type: String, required: true },
-  fieldValue: { type: String, required: true },
-  displayOrder: { type: Number, default: 0 }
-}, { _id: false });
+const infoboxFieldSchema = new Schema(
+  {
+    fieldKey: { type: String, required: true },
+    fieldValue: { type: String, required: true },
+    displayOrder: { type: Number, default: 0 },
+  },
+  { _id: false }
+);
 
 // Research Entry Schema
 const entrySchema = new Schema({
@@ -45,7 +52,7 @@ const entrySchema = new Schema({
   deletedAt: { type: Date, default: null },
   deletedBy: { type: String, default: null },
   createdAt: { type: Date, default: Date.now },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
 });
 
 // Create text index for search
@@ -62,7 +69,7 @@ const activityLogSchema = new Schema({
   entityTitle: { type: String },
   details: { type: String },
   ipAddress: { type: String },
-  timestamp: { type: Date, default: Date.now, index: true }
+  timestamp: { type: Date, default: Date.now, index: true },
 });
 
 // User Preferences Schema
@@ -77,7 +84,7 @@ const userPreferencesSchema = new Schema({
   defaultView: { type: String, enum: ['dashboard', 'lastViewed'], default: 'dashboard' },
   contentWidth: { type: String, enum: ['narrow', 'medium', 'wide'], default: 'medium' },
   spacing: { type: String, enum: ['compact', 'comfortable', 'spacious'], default: 'comfortable' },
-  updatedAt: { type: Date, default: Date.now }
+  updatedAt: { type: Date, default: Date.now },
 });
 
 // Create models
@@ -92,5 +99,5 @@ module.exports = {
   Tag,
   Entry,
   ActivityLog,
-  UserPreferences
+  UserPreferences,
 };

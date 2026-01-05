@@ -89,43 +89,19 @@ const ActivityLogs = ({ filterUsername = null }) => {
 
   return (
     <div style={containerStyle}>
-      {/* Header */}
-      <div style={headerStyle}>
-        <div>
-          <h3 style={titleStyle}>
-            {filterUsername ? `Activity Logs - ${filterUsername}` : 'Activity Logs'}
-          </h3>
-          <p style={subtitleStyle}>
-            {filterUsername
-              ? `${filteredLogs.length} activities by ${filterUsername}`
-              : `${logs.length} total activities`}
-          </p>
-        </div>
-      </div>
-
-      {/* Quick Stats */}
-      <div style={statsRowStyle}>
-        {Object.entries(actionCounts).map(([action, count]) => {
-          const style = getActionStyle(action);
-          return (
-            <div
-              key={action}
-              style={{
-                ...statChipStyle,
-                backgroundColor: style.bg,
-                color: style.color,
-              }}
-            >
-              <span style={{ fontWeight: '600' }}>{count}</span> {style.label}
-            </div>
-          );
-        })}
-      </div>
-
       {/* Filters */}
       <div style={filtersStyle}>
         <div style={searchBoxStyle}>
-          <Search size={16} color="#666" style={{ position: 'absolute', left: '12px', top: '50%', transform: 'translateY(-50%)' }} />
+          <Search
+            size={16}
+            color="#666"
+            style={{
+              position: 'absolute',
+              left: '12px',
+              top: '50%',
+              transform: 'translateY(-50%)',
+            }}
+          />
           <input
             type="text"
             placeholder="Search by user or entry..."
@@ -137,7 +113,11 @@ const ActivityLogs = ({ filterUsername = null }) => {
 
         <div style={{ display: 'flex', alignItems: 'center', gap: '8px' }}>
           <Filter size={16} color="#666" />
-          <select value={actionFilter} onChange={(e) => setActionFilter(e.target.value)} style={selectStyle}>
+          <select
+            value={actionFilter}
+            onChange={(e) => setActionFilter(e.target.value)}
+            style={selectStyle}
+          >
             <option value="">All Actions</option>
             <option value="create">Created</option>
             <option value="edit">Edited</option>
@@ -193,12 +173,8 @@ const ActivityLogs = ({ filterUsername = null }) => {
                     </td>
                     <td style={tableCellStyle}>
                       <div>
-                        {log.entity_title && (
-                          <div style={entityTitleStyle}>{log.entity_title}</div>
-                        )}
-                        {log.details && (
-                          <div style={detailsStyle}>{log.details}</div>
-                        )}
+                        {log.entity_title && <div style={entityTitleStyle}>{log.entity_title}</div>}
+                        {log.details && <div style={detailsStyle}>{log.details}</div>}
                       </div>
                     </td>
                   </tr>
@@ -219,6 +195,7 @@ const containerStyle = {
   height: '100%',
   display: 'flex',
   flexDirection: 'column',
+  fontFamily: 'Arial, sans-serif',
 };
 
 const headerStyle = {

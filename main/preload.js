@@ -32,6 +32,8 @@ contextBridge.exposeInMainWorld('wikiAPI', {
   resetUserPassword: (data) => ipcRenderer.invoke('reset-user-password', data),
   changeOwnPassword: (data) => ipcRenderer.invoke('change-own-password', data),
   changeOwnUsername: (data) => ipcRenderer.invoke('change-own-username', data),
+  updateProfileImage: (data) => ipcRenderer.invoke('update-profile-image', data),
+  getProfileImage: (username) => ipcRenderer.invoke('get-profile-image', username),
   // Database Export/Import/Backup
   exportDatabase: () => ipcRenderer.invoke('export-database'),
   importDatabase: () => ipcRenderer.invoke('import-database'),

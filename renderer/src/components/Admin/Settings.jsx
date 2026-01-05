@@ -18,8 +18,8 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
       appearances: 'Appearance Settings',
       profile: 'Profile Settings',
       users: 'User Management',
-      logs: 'Activity Logs',
-      about: 'About'
+      logs: 'Logs',
+      about: 'About',
     };
     return titles[activeTab] || 'Settings';
   };
@@ -29,14 +29,20 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
       <div style={modalContentStyle}>
         {/* Header with close button */}
         <div style={headerStyle}>
-          <h2 style={{ margin: 0, fontFamily: "'Linux Libertine', Georgia, serif", fontSize: '1.8em' }}>
+          <h2
+            style={{
+              margin: 0,
+              fontFamily: "'Linux Libertine', Georgia, serif",
+              fontSize: '1.8em',
+            }}
+          >
             {getTitle()}
           </h2>
           <button
             onClick={onClose}
             style={closeButtonStyle}
-            onMouseEnter={(e) => e.target.style.backgroundColor = '#f44336'}
-            onMouseLeave={(e) => e.target.style.backgroundColor = '#dc3545'}
+            onMouseEnter={(e) => (e.target.style.backgroundColor = '#f44336')}
+            onMouseLeave={(e) => (e.target.style.backgroundColor = '#dc3545')}
           >
             ×
           </button>
@@ -61,20 +67,41 @@ const Settings = ({ onClose, currentUser, initialTab = 'database' }) => {
 const AboutTab = () => {
   return (
     <div style={{ padding: '30px', textAlign: 'center' }}>
-      <h3 style={{ fontFamily: "'Linux Libertine', Georgia, serif", fontSize: '1.8em', marginBottom: '20px' }}>
+      <h3
+        style={{
+          fontFamily: "'Linux Libertine', Georgia, serif",
+          fontSize: '1.8em',
+          marginBottom: '20px',
+        }}
+      >
         E-Cop Wiki
       </h3>
-      <p style={{ fontSize: '1em', color: '#54595d', marginBottom: '10px' }}>
-        Version 1.0.0
-      </p>
-      <p style={{ fontSize: '0.95em', color: '#72777d', lineHeight: '1.6', maxWidth: '500px', margin: '20px auto' }}>
+      <p style={{ fontSize: '1em', color: '#54595d', marginBottom: '10px' }}>Version 1.0.0</p>
+      <p
+        style={{
+          fontSize: '0.95em',
+          color: '#72777d',
+          lineHeight: '1.6',
+          maxWidth: '500px',
+          margin: '20px auto',
+        }}
+      >
         Secure, anti-censorship library for Mongolian political data.
-        <br /><br />
+        <br />
+        <br />
         Built with Electron, React, and MongoDB.
         <br />
         Powered by IPFS for decentralized storage.
       </p>
-      <div style={{ marginTop: '30px', padding: '20px', backgroundColor: '#f8f9fa', borderRadius: '4px', border: '1px solid #e1e4e8' }}>
+      <div
+        style={{
+          marginTop: '30px',
+          padding: '20px',
+          backgroundColor: '#f8f9fa',
+          borderRadius: '4px',
+          border: '1px solid #e1e4e8',
+        }}
+      >
         <p style={{ fontSize: '0.85em', color: '#666', margin: 0 }}>
           © 2024 E-Cop Team
           <br />
@@ -96,7 +123,7 @@ const modalOverlayStyle = {
   display: 'flex',
   alignItems: 'center',
   justifyContent: 'center',
-  zIndex: 9999
+  zIndex: 9999,
 };
 
 const modalContentStyle = {
@@ -107,7 +134,7 @@ const modalContentStyle = {
   maxHeight: '85vh',
   display: 'flex',
   flexDirection: 'column',
-  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)'
+  boxShadow: '0 10px 40px rgba(0, 0, 0, 0.3)',
 };
 
 const headerStyle = {
@@ -115,7 +142,7 @@ const headerStyle = {
   justifyContent: 'space-between',
   alignItems: 'center',
   padding: '20px 30px',
-  borderBottom: '1px solid #e1e4e8'
+  borderBottom: '1px solid #e1e4e8',
 };
 
 const closeButtonStyle = {
@@ -131,13 +158,13 @@ const closeButtonStyle = {
   alignItems: 'center',
   justifyContent: 'center',
   fontWeight: 'bold',
-  transition: 'background-color 0.2s'
+  transition: 'background-color 0.2s',
 };
 
 const tabContentStyle = {
   flex: 1,
   overflowY: 'auto',
-  backgroundColor: '#fff'
+  backgroundColor: '#fff',
 };
 
 export default Settings;
