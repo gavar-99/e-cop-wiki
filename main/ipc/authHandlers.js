@@ -11,20 +11,30 @@ const { getSession, setSession, clearSession } = require('../middleware/authMidd
  */
 const register = (ipcMain) => {
     ipcMain.handle('login', async (event, { username, password }) => {
-        const result = await userService.verifyUser(username, password);
-        if (result.success) {
-            setSession({ username: result.username, role: result.role });
-            await activityLogService.logActivity(
-                username,
-                'login',
-                'auth',
-                null,
-                null,
-                `User logged in with role: ${result.role}`
-            );
-            return { success: true, user: getSession() };
+        try {
+            const result = await userService.verifyUser(username, password);
+            if (result.success) {
+                setSession({ username: result.username, role: result.role });
+                // Log activity but don't fail login if logging fails
+                try {
+                    await activityLogService.logActivity(
+                        username,
+                        'login',
+                        'auth',
+                        null,
+                        null,
+                        `User logged in with role: ${result.role}`
+                    );
+                } catch (logError) {
+                    console.error('Failed to log login activity:', logError);
+                }
+                return { success: true, user: getSession() };
+            }
+            return result;
+        } catch (error) {
+            console.error('Login error:', error);
+            return { success: false, message: 'Login failed: ' + error.message };
         }
-        return result;
     });
 
     ipcMain.handle('logout', async () => {

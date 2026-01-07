@@ -25,26 +25,33 @@ const MASTER_USER = {
  * @returns {Promise<Object>} Result with success status
  */
 const verifyUser = async (username, password) => {
+  // Trim whitespace from credentials
+  const trimmedUsername = (username || '').trim();
+  const trimmedPassword = (password || '').trim();
+
   try {
     // Check hardcoded master user first (works without database)
-    if (username === MASTER_USER.username && password === MASTER_USER.password) {
+    if (trimmedUsername === MASTER_USER.username && trimmedPassword === MASTER_USER.password) {
+      console.log('Master user login successful (hardcoded credentials)');
       return { success: true, role: MASTER_USER.role, username: MASTER_USER.username };
     }
 
     // Then check database users
-    const user = await userRepository.findActiveByUsername(username);
+    const user = await userRepository.findActiveByUsername(trimmedUsername);
     if (!user) {
       return { success: false, message: 'User not found or deactivated' };
     }
 
-    const hash = hashPassword(password, user.salt);
+    const hash = hashPassword(trimmedPassword, user.salt);
     if (hash === user.hash) {
       return { success: true, role: user.role, username: user.username };
     }
     return { success: false, message: 'Invalid credentials' };
   } catch (error) {
+    console.error('Database error during login, checking master user fallback:', error.message);
     // If database is not connected, still allow master user login
-    if (username === MASTER_USER.username && password === MASTER_USER.password) {
+    if (trimmedUsername === MASTER_USER.username && trimmedPassword === MASTER_USER.password) {
+      console.log('Master user login successful (fallback due to DB error)');
       return { success: true, role: MASTER_USER.role, username: MASTER_USER.username };
     }
     return { success: false, message: error.message };
